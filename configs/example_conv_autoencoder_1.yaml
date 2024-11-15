@@ -1,0 +1,11 @@
+layers:
+  - name: convae1
+    type: ConvAutoencoder
+    input: input
+    output: convae1_out
+    in_shape: [1,28,28]
+    initial_filter_num: 16
+    kernel_size: 3
+    stride: 2
+    padding: 1
+    latent_dim: 128

@@ -1,0 +1,52 @@
+layers:
+  - name: conv1
+    type: Conv2d
+    input: input
+    output: conv1_out
+    in_channels: 1
+    out_channels: 16
+    kernel_size: 3
+    padding: 1
+  - name: relu1
+    type: ReLU
+    input: conv1_out
+    output: relu1_out
+  - name: conv2
+    type: Conv2d
+    input: relu1_out
+    output: conv2_out
+    in_channels: 16
+    out_channels: 16
+    kernel_size: 3
+    padding: 1
+  - name: conv_residual
+    type: Conv2d
+    input: input
+    output: conv_residual_out
+    in_channels: 1
+    out_channels: 16
+    kernel_size: 1
+    padding: 0
+  - name: add_residual
+    type: Add
+    input: [conv_residual_out, conv2_out]
+    output: residual_out
+  - name: flatten
+    type: Flatten
+    input: residual_out
+    output: flatten_out
+  - name: fc1
+    type: LazyLinear
+    input: flatten_out
+    output: fc1_out
+    out_features: 128
+  - name: relu2
+    type: ReLU
+    input: fc1_out
+    output: relu2_out
+  - name: fc2
+    type: Linear
+    input: relu2_out
+    output: fc2_out
+    in_features: 128
+    out_features: 10  # For MNIST (10 classes)
