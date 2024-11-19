@@ -1,0 +1,84 @@
+layers:
+  # Shared feature extractor (applies to both inputs)
+  - name: conv1
+    type: Conv2d
+    input: input
+    output: conv1_out
+    in_channels: 1
+    out_channels: 16
+    kernel_size: 3
+    stride: 1
+    padding: 1
+
+  - name: relu1
+    type: ReLU
+    input: conv1_out
+    output: relu1_out
+
+  - name: pool1
+    type: MaxPool2d
+    input: relu1_out
+    output: pool1_out
+    kernel_size: 2
+    stride: 2
+
+  - name: conv2
+    type: Conv2d
+    input: pool1_out
+    output: conv2_out
+    in_channels: 16
+    out_channels: 32
+    kernel_size: 3
+    stride: 1
+    padding: 1
+
+  - name: relu2
+    type: ReLU
+    input: conv2_out
+    output: relu2_out
+
+  - name: pool2
+    type: MaxPool2d
+    input: relu2_out
+    output: pool2_out
+    kernel_size: 2
+    stride: 2
+
+  - name: flatten
+    type: Flatten
+    input: pool2_out
+    output: flattened_out
+
+  - name: fc_latent
+    type: LazyLinear
+    input: flattened_out
+    output: latent_out
+    out_features: 128  # Latent feature dimensionality
+
+  # Comparison layer
+  - name: subtracted_features
+    type: Subtract
+    input: [latent_out, latent_out]
+    output: difference_out
+
+  - name: fc1
+    type: LazyLinear
+    input: difference_out
+    output: fc1_out
+    out_features: 64
+
+  - name: relu3
+    type: ReLU
+    input: fc1_out
+    output: fc1_relu_out
+
+  - name: fc2
+    type: LazyLinear
+    input: fc1_relu_out
+    output: fc2_out
+    out_features: 1  # Final binary output (real or fake)
+
+  - name: sigmoid
+    type: Sigmoid
+    input: fc2_out
+    output: output  # Final output
