@@ -3,7 +3,7 @@ layers:
     type: GATConv
     input: [x, edge_index]
     output: conv1_out
-    in_channels: 500
+    in_channels: 1433
     out_channels: 32
     heads: 4
     concat: True  # Concatenate attention heads
@@ -29,4 +29,4 @@ layers:
     input: conv2_out
     output: output
     in_features: 256
-    out_features: 3  # Number of output classes
+    out_features: 7  # Number of output classes
