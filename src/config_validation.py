@@ -25,6 +25,8 @@ class ConfigModel:
         # Parse the layers from the YAML
         self.layers = layers
         # Validate the parsed layers
+
+        self.graph_specific_inputs = {"x", "edge_index", "batch"}  # GNN-specific inputs
         self.validate()
 
     def validate(self):
@@ -47,6 +49,7 @@ class ConfigModel:
 
     def validate_named_inputs_outputs(self):
         output_names = set(["input"])  # Start with 'input' as the initial input
+        output_names.update(self.graph_specific_inputs)
         for layer in self.layers:
             input_names = layer['input'] if isinstance(layer['input'], list) else [layer['input']]
             for input_name in input_names:

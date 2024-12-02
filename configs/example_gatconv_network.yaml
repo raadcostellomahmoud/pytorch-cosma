@@ -1,0 +1,32 @@
+layers:
+  - name: gat_conv1
+    type: GATConv
+    input: [x, edge_index]
+    output: conv1_out
+    in_channels: 500
+    out_channels: 32
+    heads: 4
+    concat: True  # Concatenate attention heads
+    dropout: 0.5
+
+  - name: relu1
+    type: ReLU
+    input: conv1_out
+    output: relu1_out
+
+  - name: gat_conv2
+    type: GATConv
+    input: [relu1_out, edge_index]
+    output: conv2_out
+    in_channels: 128  # out_channels * heads if concat=True
+    out_channels: 64
+    heads: 4
+    concat: True  # Output a single attention head
+    dropout: 0.5
+
+  - name: fc
+    type: Linear
+    input: conv2_out
+    output: output
+    in_features: 256
+    out_features: 3  # Number of output classes
