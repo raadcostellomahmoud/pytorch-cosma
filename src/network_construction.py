@@ -444,8 +444,12 @@ class GraphModel(BaseModel):
         super(GraphModel, self).__init__(config, device)
 
     def _pre_forward(self, data: GeomData) -> dict[str, Tensor]:
-        outputs = {"x": data.x.to(self.device), "edge_index": data.edge_index.to(self.device), "batch": getattr(data, "batch", None)}
-        return outputs
+        outputs = {
+            "x": data.x.to(self.device),
+            "edge_index": data.edge_index.to(self.device),
+            "batch": getattr(data, "batch", None),
+        }
+        return {k: v for k, v in outputs.items() if v is not None}
 
     def forward(self, data: GeomData) -> Tensor:
         inputs = self._pre_forward(data)

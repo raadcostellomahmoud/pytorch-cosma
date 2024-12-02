@@ -1,6 +1,8 @@
 import torch
+from torch import nn
 from torch.nn.functional import cross_entropy
 from torch.optim import Adam
+from torch_geometric.data import DataLoader
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.utils import to_networkx
@@ -23,28 +25,23 @@ validated_config = ConfigModel(**raw_config).to_dict()
 
 # Initialize model
 model = GraphModel(validated_config).to(device)
+# Create DataLoader
+data_loader = DataLoader([data], batch_size=1, shuffle=False)
 
 # Optimizer
 optimizer = Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
 
 # Training loop
-for epoch in range(200):
-    model.train()
-    optimizer.zero_grad()
-
-    # Forward pass
-    out = model(data)
-    loss = cross_entropy(out, data.y.to(device))
-    loss.backward()
-    optimizer.step()
-
-    print(f'Epoch {epoch + 1}, Loss: {loss.item():.4f}')
+model.train_model(train_loader=data_loader,loss_function=nn.CrossEntropyLoss(),optimizer=optimizer, epochs=100)
 
 # Evaluate
 model.eval()
 _, pred = model(data).max(dim=1)
 accuracy = (pred == data.y.to(device)).sum() / data.num_nodes
 print(f'Accuracy: {accuracy:.4f}')
+
+model.evaluate(test_loader=data_loader, loss_function=nn.CrossEntropyLoss())
+
 # Convert the graph to NetworkX format
 G = to_networkx(data, to_undirected=True)
 
