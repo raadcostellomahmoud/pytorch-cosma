@@ -93,7 +93,7 @@ individ_train_loader = DataLoader(mnist_train, batch_size=64, shuffle=True)
 
 # Latent space exploration
 explorer = LatentSpaceExplorer(model, individ_train_loader, device)
-latent_points, labels_points, all_inputs = explorer.extract_latent_space(siamese=True)
+latent_points, labels_points, all_inputs = explorer.extract_latent_space(conjoined=True)
 reduced_dimensionality = explorer.reduce_dimensionality(latent_points)
 
 # Randomly sample points for visualization

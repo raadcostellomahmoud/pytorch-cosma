@@ -8,16 +8,41 @@ import plotly.express as px
 import torch
 from dash import dcc, html
 from matplotlib.figure import Figure
+from torch.utils.data import DataLoader
 from umap import UMAP
 
 
 class LatentSpaceExplorer:
-    def __init__(self, model, train_loader, device):
+    """
+    A utility class to extract the latent space of a model and reduce its dimensionality.
+
+    This class extracts latent space representations from a trained model, reduces their dimensionality
+    using UMAP, and prepares the data for visualization.
+
+    Args:
+        model (torch.nn.Module): The trained model to explore.
+        train_loader (torch.utils.data.DataLoader): DataLoader for the dataset.
+        device (torch.device): The device on which the model and data reside.
+    """
+
+    def __init__(self, model: torch.nn.Module, train_loader: DataLoader, device):
         self.model = model
         self.train_loader = train_loader
         self.device = device
 
-    def extract_latent_space(self, siamese=False):
+    def extract_latent_space(self, conjoined: bool = False) -> tuple[np.ndarray, np.ndarray, torch.Tensor]:
+        """
+        Extracts latent space representations from the model.
+
+        Args:
+            conjoined (bool, optional): Whether the model is a conjoined network. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, torch.Tensor]:
+                - Latent points as a NumPy array.
+                - Corresponding labels as a NumPy array.
+                - Original input images as a stacked PyTorch tensor.
+        """
         self.model.eval()
         latent_points = []
         labels_points = []
@@ -26,7 +51,7 @@ class LatentSpaceExplorer:
         with torch.no_grad():
             for inputs, labels in self.train_loader:
                 inputs, labels = inputs.to(self.device), labels.cpu().numpy()
-                if siamese:
+                if conjoined:
                     latent_space = self.model.get_latent_features(inputs)
                 else:
                     latent_space, _ = self.model(inputs, return_latent=True)
@@ -34,10 +59,19 @@ class LatentSpaceExplorer:
                 labels_points.extend(labels)
                 all_inputs.extend(inputs.cpu())
 
-
         return np.array(latent_points), np.array(labels_points), torch.stack(all_inputs)
 
-    def reduce_dimensionality(self, latent_points, n_components=2):
+    def reduce_dimensionality(self, latent_points: np.ndarray, n_components: int = 2) -> np.ndarray:
+        """
+        Reduces the dimensionality of latent space points using UMAP.
+
+        Args:
+            latent_points (np.ndarray): The latent space points to reduce.
+            n_components (int, optional): The number of dimensions to reduce to. Defaults to 2.
+
+        Returns:
+            np.ndarray: The reduced dimensionality points.
+        """
         reducer = UMAP(n_components=n_components, random_state=42)
         return reducer.fit_transform(latent_points)
 

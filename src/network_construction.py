@@ -1,13 +1,26 @@
 import torch
 import torch.nn as nn
-from torch import optim
+from onnx.backend.base import DeviceType
+from torch import Tensor
+from torch.nn.modules.loss import _Loss
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 
 import src.layers as layers
 from src.layers import BaseAutoencoder
 
 
 class BaseModel(nn.Module):
-    def __init__(self, config, device=None):
+    """
+    A base model class for building neural networks from YAML configurations.
+
+    Args:
+        config (dict): YAML-based configuration defining the network architecture. Examples can be found in configs folder.
+        device (torch.device, optional): The device on which the model will run.
+            Defaults to CUDA if available, otherwise CPU.
+    """
+
+    def __init__(self, config: dict, device: DeviceType = None) -> None:
         super(BaseModel, self).__init__()
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.layers = nn.ModuleDict()  # Store layers in a dict by name
@@ -15,13 +28,30 @@ class BaseModel(nn.Module):
         self.build_network()
         self.to(self.device)  # Move the model to the specified device
 
-    def build_network(self):
+    def build_network(self) -> None:
+        """
+        Builds the network architecture from the configuration.
+
+        Parses the configuration to create layers and store them in the ModuleDict.
+        """
         for layer_conf in self.config['layers']:
             layer_name = layer_conf['name']
             layer = self.create_layer(layer_conf)  # Create layer based on config
             self.layers[layer_name] = layer  # Store layer by its name
 
-    def create_layer(self, layer_conf):
+    def create_layer(self, layer_conf: dict) -> nn.Module:
+        """
+        Creates a layer based on the configuration.
+
+        Args:
+            layer_conf (dict): A dictionary containing the layer type and parameters.
+
+        Returns:
+            nn.Module: The created layer.
+
+        Raises:
+            ValueError: If the layer type is not recognized.
+        """
         layer_type = layer_conf.pop('type')  # Remove 'type' so it's not passed to the layer constructor
         layer_class_name = f"{layer_type}"  # Derive the class name from layer type
 
@@ -43,7 +73,18 @@ class BaseModel(nn.Module):
         # Instantiate the layer with the remaining config attributes
         return layer_class(**valid_layer_conf) if issubclass(layer_class, nn.Module) else layer_class()
 
-    def forward(self, x, return_latent=False):
+    def forward(self, x: Tensor, return_latent=False) -> Tensor:
+        """
+        Performs the forward pass of the model.
+
+        Args:
+            x (torch.Tensor): Input tensor to the model.
+            return_latent (bool, optional): If True, returns the latent space representation.
+                Defaults to False.
+
+        Returns:
+            torch.Tensor: The output tensor of the model or the latent space representation.
+        """
         x = x.to(self.device)  # Ensure input is on the same device as the model
         outputs = {'input': x}  # Track all outputs by name, starting with the input tensor
         latent = None
@@ -76,14 +117,15 @@ class BaseModel(nn.Module):
         # Return the final output from the last layer
         return outputs[self.config['layers'][-1]['output']]
 
-    def export_onnx(self, file_path, input_shape=(1, 1, 28, 28), opset_version=13):
+    def export_onnx(self, file_path: str, input_shape: tuple = (1, 1, 28, 28), opset_version: int = 13) -> None:
         """
         Exports the model to ONNX format.
 
-        Parameters:
-        - file_path: Path to save the ONNX file.
-        - input_shape: The shape of the input tensor (batch size, channels, height, width).
-        - opset_version: The ONNX opset version to use.
+        Args:
+            file_path (str): Path to save the ONNX file.
+            input_shape (tuple, optional): The shape of the input tensor
+                (batch size, channels, height, width). Defaults to (1, 1, 28, 28).
+            opset_version (int, optional): The ONNX opset version to use. Defaults to 13.
         """
         # Generate a dummy input tensor with the specified shape
         dummy_input = torch.randn(*input_shape, device=self.device)
@@ -94,7 +136,22 @@ class BaseModel(nn.Module):
                           dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}})
         print(f"Model exported to {file_path}")
 
-    def train_model(self,train_loader, loss_function, optimizer, classification_loss_weight: float=0.2, use_reconstruction: bool=False, epochs: int=10):
+    def train_model(self, train_loader: DataLoader, loss_function: _Loss, optimizer: Optimizer,
+                    classification_loss_weight: float = 0.2,
+                    use_reconstruction: bool = False, epochs: int = 10) -> None:
+        """
+        Trains the model using the given training data.
+
+        Args:
+            train_loader (DataLoader): DataLoader for training data.
+            loss_function (callable): Loss function to use.
+            optimizer (torch.optim.Optimizer): Optimizer for training.
+            classification_loss_weight (float, optional): Weight for classification loss when combined
+                with reconstruction loss. Defaults to 0.2.
+            use_reconstruction (bool, optional): If True, computes reconstruction loss alongside classification.
+                Defaults to False.
+            epochs (int, optional): Number of epochs to train for. Defaults to 10.
+        """
         self.to(self.device)
         for epoch in range(epochs):
             self.train()
@@ -137,12 +194,16 @@ class BaseModel(nn.Module):
             accuracy = 100 * correct / total
             print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
-    def evaluate(self, test_loader, loss_function):
+    def evaluate(self, test_loader: DataLoader, loss_function: _Loss) -> float:
         """
-        Evaluates the model on the test set.
+        Evaluates the model on the test data.
+
+        Args:
+            test_loader (DataLoader): DataLoader for test data.
+            loss_function (callable): Loss function to use.
 
         Returns:
-            float: Accuracy for classification models
+            float: Accuracy for classification models.
         """
         self.eval()
         correct = 0
@@ -173,18 +234,21 @@ class BaseModel(nn.Module):
 
 
 class ConjoinedNetwork(BaseModel):
-    def __init__(self, config, device=None):
-        """
-        Initializes the ConjoinedNetwork.
+    """
+    A network designed for Siamese-style architectures to compare two inputs.
 
-        Args:
-            config (dict): The YAML-based configuration for the network.
-            device (torch.device, optional): The device on which the model will run.
-                Defaults to CUDA if available, otherwise CPU.
-        """
+    Inherits from BaseModel and supports feature extraction and similarity comparison.
+
+    Args:
+        config (dict): The YAML-based configuration for the network.
+        device (torch.device, optional): The device on which the model will run.
+            Defaults to CUDA if available, otherwise CPU.
+    """
+
+    def __init__(self, config: dict, device: DeviceType = None) -> None:
         super(ConjoinedNetwork, self).__init__(config, device)
 
-    def forward(self, x1, x2, return_latent=False):
+    def forward(self, x1: Tensor, x2: Tensor, return_latent: bool = False) -> Tensor | list[Tensor]:
         """
         Forward pass for the Conjoined Network with optional latent space retrieval.
 
@@ -196,7 +260,8 @@ class ConjoinedNetwork(BaseModel):
 
         Returns:
             Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-                - If `return_latent` is False, returns the final output tensor of shape (batch_size, 1).
+                - If `return_latent` is True, returns the latent space representations of both inputs as a tuple.
+                - Otherwise, returns the final output tensor of shape (batch_size, 1).
         """
         x1 = x1.to(self.device)
         x2 = x2.to(self.device)
@@ -233,7 +298,7 @@ class ConjoinedNetwork(BaseModel):
         # Return the final output from the last layer
         return outputs1[self.config['layers'][-1]['output']]
 
-    def get_latent_features(self, x):
+    def get_latent_features(self, x: Tensor) -> Tensor:
         """
         Extracts the latent features from a single input using the shared feature extractor.
 
@@ -265,7 +330,17 @@ class ConjoinedNetwork(BaseModel):
 
         raise ValueError("No latent layer found in the network configuration.")
 
-    def train_model(self,train_loader, optimizer, loss_function, epochs=1):
+    def train_model(self, train_loader: DataLoader, optimizer: Optimizer, loss_function: _Loss,
+                    epochs: int = 1) -> None:
+        """
+        Trains the model using the given training data.
+
+        Args:
+            train_loader (DataLoader): DataLoader for training data.
+            optimizer (torch.optim.Optimizer): Optimizer for training.
+            loss_function (callable): Loss function to use.
+            epochs (int, optional): Number of epochs to train for. Defaults to 1.
+        """
         self.to(self.device)
         for epoch in range(epochs):
             self.train()
@@ -293,12 +368,16 @@ class ConjoinedNetwork(BaseModel):
             avg_loss = running_loss / len(train_loader)
             print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}")
 
-    def evaluate(self, test_loader, loss_function):
+    def evaluate(self, test_loader: DataLoader, loss_function: _Loss) -> float:
         """
         Evaluates the model on the test set.
 
+        Args:
+            test_loader (DataLoader): DataLoader for test data.
+            loss_function (callable): Loss function to use.
+
         Returns:
-            float: Similarity score for Siamese networks.
+            float: Average test loss for the model.
         """
         self.eval()
         running_loss = 0.0
