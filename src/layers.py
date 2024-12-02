@@ -15,7 +15,8 @@ class Add(nn.Module):
     def __init__(self, **kwargs):
         super(Add, self).__init__()
 
-    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+    @staticmethod
+    def forward(inputs: list[torch.Tensor]) -> torch.Tensor:
         """
         Forward pass for the Add layer.
 
@@ -39,7 +40,8 @@ class Subtract(nn.Module):
     def __init__(self, **kwargs):
         super(Subtract, self).__init__()
 
-    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+    @staticmethod
+    def forward(inputs: list[torch.Tensor]) -> torch.Tensor:
         """
         Forward pass for the Subtract layer.
 
@@ -180,7 +182,8 @@ class ConvAutoencoder(BaseAutoencoder):
         reconstructed = self.decoder(latent)
         return reconstructed, self.classifier(latent)
 
-    def _get_conv_output_size(self, in_shape: tuple[int, int, int], kernel_size: int, stride: int, padding: int) -> int:
+    @staticmethod
+    def _get_conv_output_size(in_shape: tuple[int, int, int], kernel_size: int, stride: int, padding: int) -> int:
         """
         Calculates the size of the output of a convolutional layer.
 

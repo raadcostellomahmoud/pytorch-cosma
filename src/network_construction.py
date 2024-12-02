@@ -39,7 +39,8 @@ class BaseModel(nn.Module):
             layer = self.create_layer(layer_conf)  # Create layer based on config
             self.layers[layer_name] = layer  # Store layer by its name
 
-    def create_layer(self, layer_conf: dict) -> nn.Module:
+    @staticmethod
+    def create_layer(layer_conf: dict) -> nn.Module:
         """
         Creates a layer based on the configuration.
 
