@@ -1,3 +1,5 @@
+from typing import Optional, Dict, Callable, List
+
 import torch
 import torch.nn as nn
 from onnx.backend.base import DeviceType
@@ -88,40 +90,41 @@ class BaseModel(nn.Module):
             else:
                 raise ValueError(f"Cannot instantiate layer: {layer_type}")
 
-    def _pre_forward(self, x: Tensor) -> dict[str, Tensor]:
+    def _core_iterate_through_layers(self, layer_conf, outputs):
+        layer_name = layer_conf["name"]
+        try:
+            layer = self.layers[layer_name]
+        except KeyError:
+            layer = self.functional_layers.get(layer_name)
+
+        # Get inputs for this layer (can be a list or a single tensor)
+        input_names = layer_conf["input"]
+
+        # Case 1: Single input
+        if isinstance(input_names, str):  # Single input tensor
+            inputs = outputs[input_names]
+
+        # Case 2: Multiple inputs (e.g., for AddLayer)
+        elif isinstance(input_names, list):  # List of input tensors
+            inputs = [outputs[name] for name in input_names]
+
+        # Apply the layer
+        try:
+            # Handle layers with multiple inputs
+            outputs[layer_conf["output"]] = layer(inputs)
+        except TypeError:
+            # Handle layers that expect unpacked inputs
+            outputs[layer_conf["output"]] = layer(*inputs)
+        return inputs, layer, outputs
+
+    def forward(self, x: Tensor, return_latent=False) -> Tensor:
         x = x.to(self.device)  # Ensure input is on the same device as the model
         outputs = {"input": x}  # Track all outputs by name, starting with the input tensor
-        return outputs
-
-    def _forward(self, inputs: dict, return_latent=False) -> Tensor:
-
-        outputs = inputs
         latent = None
 
         # Iterate through the layers defined in the config
         for layer_conf in self.config["layers"]:
-            layer_name = layer_conf["name"]
-            try:
-                layer = self.layers[layer_name]
-            except KeyError:
-                layer = self.functional_layers.get(layer_name)
-
-            # Get inputs for this layer (can be a list or a single tensor)
-            input_names = layer_conf["input"]
-
-            # Case 1: Single input
-            if isinstance(input_names, str):  # Single input tensor
-                inputs = outputs[input_names]
-
-            # Case 2: Multiple inputs (e.g., for AddLayer)
-            elif isinstance(input_names, list):  # List of input tensors
-                inputs = [outputs[name] for name in input_names]
-
-            try:
-                # Apply the layer: Unpack inputs for multi-input layers, pass as is for single-input layers
-                outputs[layer_conf["output"]] = layer(inputs)
-            except TypeError:
-                outputs[layer_conf["output"]] = layer(*inputs)
+            inputs, layer, outputs = self._core_iterate_through_layers(layer_conf, outputs)
 
             if isinstance(layer, BaseAutoencoder):
                 latent = layer(inputs, return_latent)
@@ -131,21 +134,6 @@ class BaseModel(nn.Module):
 
         # Return the final output from the last layer
         return outputs[self.config["layers"][-1]["output"]]
-
-    def forward(self, x: Tensor, return_latent=False) -> Tensor:
-        """
-        Performs the forward pass of the model.
-
-        Args:
-            x (torch.Tensor): Input tensor to the model.
-            return_latent (bool, optional): If True, returns the latent space representation.
-                Defaults to False.
-
-        Returns:
-            torch.Tensor: The output tensor of the model or the latent space representation.
-        """
-        inputs = self._pre_forward(x)
-        return self._forward(inputs, return_latent=return_latent)
 
     def export_onnx(self, file_path: str, input_shape: tuple = (1, 1, 28, 28), opset_version: int = 13) -> None:
         """
@@ -183,7 +171,7 @@ class BaseModel(nn.Module):
             epochs (int, optional): Number of epochs to train for. Defaults to 10.
         """
         self.to(self.device)
-        self.use_reconstruction=use_reconstruction
+        self.use_reconstruction = use_reconstruction
         for epoch in range(epochs):
             self.train()
             running_loss = 0.0
@@ -264,7 +252,7 @@ class BaseModel(nn.Module):
         return accuracy
 
 
-class ConjoinedNetwork(BaseModel):
+class TwinNetwork(BaseModel):
     """
     A network designed for Siamese-style architectures to compare two inputs.
 
@@ -277,11 +265,11 @@ class ConjoinedNetwork(BaseModel):
     """
 
     def __init__(self, config: dict, device: DeviceType = None) -> None:
-        super(ConjoinedNetwork, self).__init__(config, device)
+        super(TwinNetwork, self).__init__(config, device)
 
     def forward(self, x1: Tensor, x2: Tensor, return_latent: bool = False) -> Tensor | list[Tensor]:
         """
-        Forward pass for the Conjoined Network with optional latent space retrieval.
+        Forward pass for the Twin Network with optional latent space retrieval.
 
         Args:
             x1 (torch.Tensor): The first input tensor of shape (batch_size, channels, height, width).
@@ -443,96 +431,127 @@ class GraphModel(BaseModel):
     def __init__(self, config: dict, device: torch.device = None) -> None:
         super(GraphModel, self).__init__(config, device)
 
-    def _pre_forward(self, data: GeomData) -> dict[str, Tensor]:
+
+    def forward(self, data: GeomData, edges_nodes_or_both: str = 'nodes') -> Dict[str, Tensor]:
         outputs = {
             "x": data.x.to(self.device),
             "edge_index": data.edge_index.to(self.device),
-            "batch": getattr(data, "batch", None),
+            "batch": getattr(data, "batch", None)
         }
-        return {k: v for k, v in outputs.items() if v is not None}
 
-    def forward(self, data: GeomData) -> Tensor:
-        inputs = self._pre_forward(data)
-        return super()._forward(inputs)
+        # Iterate through the layers defined in the config
+        for layer_conf in self.config["layers"]:
+            _, _, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+
+        # Collect specified outputs
+        model_outputs = {}
+        for layer_conf in self.config["layers"]:
+            output_name = layer_conf["output"]
+            if output_name.startswith("node_output"):
+                model_outputs[output_name] = outputs[output_name]
+            elif output_name.startswith("edge_output"):
+                model_outputs[output_name] = outputs[output_name].squeeze(-1)
+        return model_outputs
 
     def train_model(
             self,
             train_loader: DataLoader,
-            loss_function: _Loss,
+            loss_functions: Dict[str, _Loss],
             optimizer: Optimizer,
+            metrics: Optional[Dict[str, Callable[[torch.Tensor, torch.Tensor], float]]] = None,
+            label_mapping: dict = None,  # Map task names to dataset attributes
             epochs: int = 10,
+            **kwargs
     ) -> None:
         """
         Trains the graph model using the given training data.
 
         Args:
             train_loader (DataLoader): DataLoader for graph data.
-            loss_function (callable): Loss function to use.
+            loss_functions (Dict[str, _Loss]): Dictionary mapping task names to loss functions.
             optimizer (torch.optim.Optimizer): Optimizer for training.
+            metrics (Dict[str, Callable], optional): Dictionary mapping task names to metric functions.
             epochs (int, optional): Number of epochs to train for. Defaults to 10.
         """
         self.to(self.device)
         for epoch in range(epochs):
             self.train()
-            running_loss = 0.0
-            correct = 0
-            total = 0
+            task_metrics = {task: 0.0 for task in metrics} if metrics else {}
+            running_loss = {task: 0.0 for task in loss_functions}
 
             for data in train_loader:
                 data = data.to(self.device)
-                labels = data.y.to(self.device)
 
                 optimizer.zero_grad()
 
                 # Forward pass
-                logits = self.forward(data)
+                outputs = self.forward(data, **kwargs)
 
-                # Compute loss
-                loss = loss_function(logits, labels)
+                # Compute loss for each task
+                losses = []
+                for task, loss_fn in loss_functions.items():
+                    label_attr = label_mapping.get(task,
+                                                   task) if label_mapping else task  # Default to task name if mapping is not provided
+                    labels = getattr(data, label_attr).to(self.device)
+                    preds = outputs[task] if type(outputs) is dict else outputs
+                    task_loss = loss_fn(preds, labels)
+                    losses.append(task_loss)
+
+                    # Calculate metrics
+                    if metrics and task in metrics:
+                        task_metrics[task] += metrics[task](preds, labels)
+
+                loss = sum(losses)
                 loss.backward()
                 optimizer.step()
 
-                # Metrics
-                running_loss += loss.item()
-                _, predicted = torch.max(logits, dim=1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                for task in loss_functions:
+                    label_attr = label_mapping.get(task,
+                                                   task) if label_mapping else task  # Default to task name if mapping is not provided
+                    labels = getattr(data, label_attr).to(self.device)
+                    running_loss[task] += loss_functions[task](outputs[task], labels).item()
 
-            avg_loss = running_loss / len(train_loader)
-            accuracy = 100 * correct / total
-            print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
+            avg_loss = {task: running_loss[task] / len(train_loader) for task in loss_functions}
+            avg_metrics = (
+                {task: score / len(train_loader) for task, score in task_metrics.items()}
+                if metrics
+                else None
+            )
+            print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss}, Metrics: {avg_metrics}")
 
-    def evaluate(self, test_loader: DataLoader, loss_function: _Loss) -> float:
-        """
-        Evaluates the graph model on the test data.
-
-        Args:
-            test_loader (DataLoader): DataLoader for graph data.
-            loss_function (callable): Loss function to use.
-
-        Returns:
-            float: Accuracy for the test dataset.
-        """
+    def evaluate(
+            self,
+            test_loader: DataLoader,
+            loss_functions: Dict[str, _Loss],
+            metrics: Optional[Dict[str, Callable[[torch.Tensor, torch.Tensor], float]]] = None,
+            label_mapping: dict = None,  # Map task names to dataset attributes
+            **kwargs
+    ) -> Dict[str, float]:
         self.eval()
-        correct = 0
-        total = 0
-        running_loss = 0.0
+        running_loss = {task: 0.0 for task in loss_functions}
+        task_metrics = {task: 0.0 for task in metrics} if metrics else {}
 
         with torch.no_grad():
             for data in test_loader:
                 data = data.to(self.device)
-                labels = data.y.to(self.device)
+                outputs = self.forward(data, **kwargs)
 
-                # Forward pass
-                logits = self.forward(data)
-                loss = loss_function(logits, labels)
+                for task, loss_fn in loss_functions.items():
+                    label_attr = label_mapping.get(task,
+                                                   task) if label_mapping else task  # Default to task name if mapping is not provided
+                    labels = getattr(data, label_attr).to(self.device)
+                    preds = outputs[task] if type(outputs) is dict else outputs
+                    running_loss[task] += loss_fn(preds, labels).item()
 
-                running_loss += loss.item()
-                _, predicted = torch.max(logits, dim=1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                    if metrics and task in metrics:
+                        task_metrics[task] += metrics[task](preds, labels)
 
-        avg_loss = running_loss / len(test_loader)
-        accuracy = 100 * correct / total
-        print(f"Test Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
-        return accuracy
+        avg_loss = {task: running_loss[task] / len(test_loader) for task in loss_functions}
+        avg_metrics = (
+            {task: score / len(test_loader) for task, score in task_metrics.items()}
+            if metrics
+            else None
+        )
+        print(f"Test Results - Loss: {avg_loss}, Metrics: {avg_metrics}")
+        return {"loss": avg_loss, "metrics": avg_metrics}
+

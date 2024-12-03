@@ -27,6 +27,6 @@ layers:
   - name: fc
     type: Linear
     input: conv2_out
-    output: output
+    output: node_output
     in_features: 256
     out_features: 7  # Number of output classes

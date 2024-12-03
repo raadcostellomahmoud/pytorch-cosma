@@ -2,7 +2,9 @@ import random
 
 import dash
 import dash_cytoscape as cyto
+import torch
 from dash import html
+from torch_geometric.utils import negative_sampling
 
 
 class GraphVisualizer:
@@ -94,3 +96,23 @@ class GraphVisualizer:
             ]
         )
         return app
+
+
+def prepare_edge_labels(data):
+    pos_edge_label = torch.ones(data.train_pos_edge_index.size(1))  # Positive edges
+    neg_edge_index = negative_sampling(
+        edge_index=data.train_pos_edge_index,  # Positive edges
+        num_nodes=data.num_nodes,
+        num_neg_samples=data.train_pos_edge_index.size(1),
+    )
+    neg_edge_label = torch.zeros(neg_edge_index.size(1))  # Negative edges
+
+    # Combine positive and negative edges
+    edge_index = torch.cat([data.train_pos_edge_index, neg_edge_index], dim=1)
+    edge_label = torch.cat([pos_edge_label, neg_edge_label], dim=0)
+
+    # Shuffle edges and labels
+    perm = torch.randperm(edge_index.size(1))
+    data.edge_index = edge_index[:, perm]
+    data.edge_label = edge_label[perm]
+    return data

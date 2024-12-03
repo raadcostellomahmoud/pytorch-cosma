@@ -1,0 +1,37 @@
+layers:
+  - name: gat_conv1
+    type: GATConv
+    input: [x, edge_index]
+    output: conv1_out
+    in_channels: 1433
+    out_channels: 64
+    heads: 4
+
+  - name: gat_conv2
+    type: GATConv
+    input: [conv1_out, edge_index]
+    output: conv2_out
+    in_channels: 256
+    out_channels: 128
+    heads: 1
+
+  - name: node_fc
+    type: Linear
+    input: conv2_out
+    output: node_output
+    in_features: 128
+    out_features: 7  # Node classes
+
+  # Add a custom functional layer to prepare edge inputs
+  - name: edge_input_preparer
+    type: prepare_edge_inputs
+    input: [conv2_out, edge_index]  # Pass node embeddings and edge indices
+    output: edge_embeddings
+
+  - name: edge_scorer
+    type: Bilinear
+    input: edge_embeddings
+    output: edge_output
+    in1_features: 128
+    in2_features: 128
+    out_features: 1  # Binary edge label (logit)
