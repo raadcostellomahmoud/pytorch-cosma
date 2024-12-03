@@ -129,10 +129,6 @@ class ConvAutoencoder(BaseAutoencoder):
                  stride: int = 2, padding: int = 1, latent_dim: int = 128, num_classes: int = 10, **kwargs) -> None:
         super(ConvAutoencoder, self).__init__()
 
-        # Define the convolutional layers for the encoder
-        self.conv1 = nn.Conv2d(in_shape[0], initial_filter_num, kernel_size, stride=stride, padding=padding)
-        self.conv2 = nn.Conv2d(initial_filter_num, initial_filter_num * 2, kernel_size, stride=stride, padding=padding)
-
         # Calculate the size of the feature map after convolutional layers
         first_conv_output_size = self._get_conv_output_size(in_shape, kernel_size, stride, padding)
         self._conv_output_size = self._get_conv_output_size([None, first_conv_output_size, first_conv_output_size],
