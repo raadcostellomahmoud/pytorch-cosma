@@ -25,7 +25,7 @@ test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 # Load configuration from YAML
 raw_config = YamlParser(
-    "configs/example_conv_autoencoder_1.yaml").parse()  # raw_config is a dictionary from the YAML file
+    "configs/example_conv_autoencoder.yaml").parse()  # raw_config is a dictionary from the YAML file
 
 # Validate configuration
 try:
