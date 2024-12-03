@@ -30,12 +30,12 @@ class LatentSpaceExplorer:
         self.train_loader = train_loader
         self.device = device
 
-    def extract_latent_space(self, conjoined: bool = False) -> tuple[np.ndarray, np.ndarray, torch.Tensor]:
+    def extract_latent_space(self, twin: bool = False) -> tuple[np.ndarray, np.ndarray, torch.Tensor]:
         """
         Extracts latent space representations from the model.
 
         Args:
-            conjoined (bool, optional): Whether the model is a conjoined network. Defaults to False.
+            twin (bool, optional): Whether the model is a twin network. Defaults to False.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, torch.Tensor]:
@@ -51,7 +51,7 @@ class LatentSpaceExplorer:
         with torch.no_grad():
             for inputs, labels in self.train_loader:
                 inputs, labels = inputs.to(self.device), labels.cpu().numpy()
-                if conjoined:
+                if twin:
                     latent_space = self.model.get_latent_features(inputs)
                 else:
                     latent_space, _ = self.model(inputs, return_latent=True)

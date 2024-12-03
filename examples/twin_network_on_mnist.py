@@ -9,7 +9,7 @@ import random
 from src.config_validation import ConfigModel
 from src.latent_space import LatentSpaceExplorer, Visualizer
 from src.model_yaml_parser import YamlParser
-from src.network_construction import ConjoinedNetwork
+from src.network_construction import TwinNetwork
 
 # Define device (GPU/CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,7 +24,7 @@ transform = transforms.Compose([transforms.ToTensor()])
 mnist_train = datasets.MNIST(root="data", train=True, download=True, transform=transform)
 mnist_test = datasets.MNIST(root="data", train=False, download=True, transform=transform)
 
-class SiameseMNISTDataset(Dataset):
+class TwinMNISTDataset(Dataset):
     def __init__(self, dataset):
         """
         Args:
@@ -42,7 +42,7 @@ class SiameseMNISTDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Generate a Siamese pair.
+        Generate a twin pair.
 
         Args:
             idx (int): Index of the primary image.
@@ -68,19 +68,19 @@ class SiameseMNISTDataset(Dataset):
 
 
 
-# Prepare Siamese datasets and loaders
-train_dataset = SiameseMNISTDataset(mnist_train)
-test_dataset = SiameseMNISTDataset(mnist_test)
+# Prepare Twin datasets and loaders
+train_dataset = TwinMNISTDataset(mnist_train)
+test_dataset = TwinMNISTDataset(mnist_test)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Load configuration from YAML
-raw_config = YamlParser("configs/example_conjoined_network.yaml").parse()
+raw_config = YamlParser("configs/example_twin_network.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
 
 # Initialize the model
-model = ConjoinedNetwork(validated_config).to(device)
+model = TwinNetwork(validated_config).to(device)
 
 # Loss function and optimizer
 loss_function = nn.BCEWithLogitsLoss()  # Binary Cross-Entropy with logits
@@ -93,7 +93,7 @@ individ_train_loader = DataLoader(mnist_train, batch_size=64, shuffle=True)
 
 # Latent space exploration
 explorer = LatentSpaceExplorer(model, individ_train_loader, device)
-latent_points, labels_points, all_inputs = explorer.extract_latent_space(conjoined=True)
+latent_points, labels_points, all_inputs = explorer.extract_latent_space(twin=True)
 reduced_dimensionality = explorer.reduce_dimensionality(latent_points)
 
 # Randomly sample points for visualization
@@ -107,4 +107,4 @@ selected_inputs = all_inputs[indices]
 visualizer = Visualizer(reduced_dimensionality, labels_points, selected_inputs)
 hover_images = visualizer.generate_hover_images()
 app = visualizer.create_dash_app(hover_images)
-app.run_server(debug=True)
+app.run_server(debug=False)
