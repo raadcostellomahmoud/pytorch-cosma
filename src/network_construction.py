@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Callable, List
+from typing import Optional, Dict, Callable
 
 import torch
 import torch.nn as nn
@@ -21,9 +21,12 @@ class BaseModel(nn.Module):
         config (dict): YAML-based configuration defining the network architecture. Examples can be found in configs folder.
         device (torch.device, optional): The device on which the model will run.
             Defaults to CUDA if available, otherwise CPU.
+        use_reconstruction (bool, optional): If True, computes reconstruction loss alongside classification.
+                Defaults to False.
     """
 
-    def __init__(self, config: dict, device: DeviceType = None) -> None:
+    def __init__(self, config: dict, device: DeviceType = None, use_reconstruction: bool = False) -> None:
+
         super(BaseModel, self).__init__()
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.layers = nn.ModuleDict()  # Store layers in a dict by name
@@ -31,6 +34,7 @@ class BaseModel(nn.Module):
         self.config = config
         self.build_network()
         self.to(self.device)  # Move the model to the specified device
+        self.use_reconstruction = use_reconstruction
 
     def build_network(self) -> None:
         """
@@ -155,8 +159,7 @@ class BaseModel(nn.Module):
         print(f"Model exported to {file_path}")
 
     def train_model(self, train_loader: DataLoader, loss_function: _Loss, optimizer: Optimizer,
-                    classification_loss_weight: float = 0.2,
-                    use_reconstruction: bool = False, epochs: int = 10) -> None:
+                    classification_loss_weight: float = 0.2, epochs: int = 10) -> None:
         """
         Trains the model using the given training data.
 
@@ -166,12 +169,9 @@ class BaseModel(nn.Module):
             optimizer (torch.optim.Optimizer): Optimizer for training.
             classification_loss_weight (float, optional): Weight for classification loss when combined
                 with reconstruction loss. Defaults to 0.2.
-            use_reconstruction (bool, optional): If True, computes reconstruction loss alongside classification.
-                Defaults to False.
             epochs (int, optional): Number of epochs to train for. Defaults to 10.
         """
         self.to(self.device)
-        self.use_reconstruction = use_reconstruction
         for epoch in range(epochs):
             self.train()
             running_loss = 0.0
@@ -186,13 +186,13 @@ class BaseModel(nn.Module):
                 optimizer.zero_grad()
 
                 # Forward pass
-                if use_reconstruction:
+                if self.use_reconstruction:
                     reconstructed, logits = self.forward(inputs)
                 else:
                     logits = self.forward(inputs)
 
                 # Compute loss
-                if use_reconstruction:
+                if self.use_reconstruction:
                     reconstruction_loss = loss_function(reconstructed, inputs)
                     classification_loss = nn.functional.cross_entropy(logits, labels)
                     loss = reconstruction_loss + classification_loss_weight * classification_loss
@@ -431,7 +431,6 @@ class GraphModel(BaseModel):
     def __init__(self, config: dict, device: torch.device = None) -> None:
         super(GraphModel, self).__init__(config, device)
 
-
     def forward(self, data: GeomData, edges_nodes_or_both: str = 'nodes') -> Dict[str, Tensor]:
         outputs = {
             "x": data.x.to(self.device),
@@ -554,4 +553,3 @@ class GraphModel(BaseModel):
         )
         print(f"Test Results - Loss: {avg_loss}, Metrics: {avg_metrics}")
         return {"loss": avg_loss, "metrics": avg_metrics}
-
