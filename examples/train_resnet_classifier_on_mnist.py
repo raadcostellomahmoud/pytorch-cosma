@@ -10,9 +10,6 @@ from src.network_construction import BaseModel
 # Define device (GPU/CPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Load configuration from YAML
-raw_config = YamlParser("configs/example_model.yaml").parse()  # raw_config is a dictionary from the YAML file
-
 # Load configuration and model
 raw_config = YamlParser("configs/example_model.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
