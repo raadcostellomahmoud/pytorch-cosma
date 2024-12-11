@@ -158,6 +158,19 @@ class BaseModel(nn.Module):
                           dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}})
         print(f"Model exported to {file_path}")
 
+    def perturbed_backprop(self, loss, optimizer):
+        loss.backward()
+
+        # Safely perturb gradients of biases
+        for name, layer in self.layers.items():
+            if hasattr(layer, 'bias') and layer.bias is not None:
+                if layer.bias.grad is not None:
+                    layer.bias.grad.data.add_(torch.randn_like(layer.bias.grad) * 1e-6)
+                else:
+                    print(f"Warning: Gradient for bias in layer '{name}' is None.")
+
+        optimizer.step()
+
     def train_model(self, train_loader: DataLoader, loss_function: _Loss, optimizer: Optimizer,
                     classification_loss_weight: float = 0.2, epochs: int = 10) -> None:
         """
@@ -199,8 +212,7 @@ class BaseModel(nn.Module):
                 else:
                     loss = loss_function(logits, labels)
 
-                loss.backward()
-                optimizer.step()
+                self.perturbed_backprop(loss, optimizer)
 
                 # Metrics
                 _, predicted = torch.max(logits.data, 1)
@@ -349,8 +361,7 @@ class TwinNetwork(BaseModel):
 
         raise ValueError("No latent layer found in the network configuration.")
 
-    def train_model(self, train_loader: DataLoader, optimizer: Optimizer, loss_function: _Loss,
-                    epochs: int = 1) -> None:
+    def train_model(self, train_loader: DataLoader, optimizer: Optimizer, loss_function: _Loss, epochs: int = 1) -> None:
         """
         Trains the model using the given training data.
 
@@ -377,9 +388,7 @@ class TwinNetwork(BaseModel):
 
                 # Compute loss
                 loss = loss_function(logits.squeeze(), labels)
-
-                loss.backward()
-                optimizer.step()
+                self.perturbed_backprop(loss, optimizer)
 
                 # Metrics
                 running_loss += loss.item()
@@ -501,8 +510,7 @@ class GraphModel(BaseModel):
                         task_metrics[task] += metrics[task](preds, labels)
 
                 loss = sum(losses)
-                loss.backward()
-                optimizer.step()
+                self.perturbed_backprop(loss, optimizer)
 
                 for task in loss_functions:
                     label_attr = label_mapping.get(task,
@@ -525,7 +533,7 @@ class GraphModel(BaseModel):
             metrics: Optional[Dict[str, Callable[[torch.Tensor, torch.Tensor], float]]] = None,
             label_mapping: dict = None,  # Map task names to dataset attributes
             **kwargs
-    ) -> Dict[str, float]:
+    ) -> dict[str, dict[str, float] | None]:
         self.eval()
         running_loss = {task: 0.0 for task in loss_functions}
         task_metrics = {task: 0.0 for task in metrics} if metrics else {}
