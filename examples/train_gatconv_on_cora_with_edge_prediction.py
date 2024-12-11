@@ -8,7 +8,7 @@ from torch_geometric.utils import to_networkx
 from torch_geometric.utils import train_test_split_edges
 
 from src.config_validation import ConfigModel
-from src.graphs import GraphVisualizer, prepare_edge_labels
+from src.graphs import prepare_edge_labels, GraphVisualizer3D
 from src.model_yaml_parser import YamlParser
 from src.network_construction import GraphModel
 
@@ -84,8 +84,8 @@ print(f"Edge Prediction Accuracy: {edge_accuracy:.4f}")
 G = to_networkx(data, to_undirected=True)
 
 # Visualize the graph using the GraphVisualizer
-SUBSET_SIZE = 750  # Configurable subset size
-visualizer = GraphVisualizer(G, node_pred, data.y, subset_size=SUBSET_SIZE, edge_predictions=edge_pred,
+SUBSET_SIZE = 200  # Configurable subset size
+visualizer = GraphVisualizer3D(G, node_pred, data.y, subset_size=SUBSET_SIZE, edge_predictions=edge_pred,
                              edge_ground_truth=data.edge_label)
 app = visualizer.create_dash_app()
 

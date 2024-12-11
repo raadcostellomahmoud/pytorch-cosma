@@ -2,8 +2,12 @@ import random
 
 import dash
 import dash_cytoscape as cyto
+import networkx as nx
+import numpy as np
+import plotly.graph_objects as go
 import torch
-from dash import html
+from dash import Dash
+from dash import dcc, html
 from torch_geometric.utils import negative_sampling
 
 
@@ -133,6 +137,147 @@ class GraphVisualizer:
                 ),
             ]
         )
+        return app
+
+
+class GraphVisualizer3D:
+    def __init__(self, graph, node_predictions, node_ground_truth, subset_size=None, edge_predictions=None,
+                 edge_ground_truth=None):
+        """
+        Initializes the GraphVisualizer3D class.
+
+        Args:
+            graph (networkx.Graph): The graph to visualize.
+            node_predictions (torch.Tensor): Node-level predictions.
+            node_ground_truth (torch.Tensor): Ground truth labels for nodes.
+            subset_size (int, optional): Number of nodes to visualize. If None, visualize all nodes.
+            edge_predictions (torch.Tensor, optional): Edge-level predictions (logits or probabilities).
+            edge_ground_truth (torch.Tensor, optional): Ground truth labels for edges.
+        """
+        self.graph = graph
+        self.node_predictions = node_predictions
+        self.node_ground_truth = node_ground_truth
+        self.edge_predictions = edge_predictions
+        self.edge_ground_truth = edge_ground_truth
+        self.subset_size = subset_size
+
+        # Subset graph nodes
+        self.subset_nodes = self._subset_nodes()
+        self.pos = nx.spring_layout(self.graph, dim=3, seed=42)  # Generate 3D positions for nodes
+
+    def _subset_nodes(self):
+        """
+        Select a subset of nodes if subset_size is provided.
+
+        Returns:
+            set: Subset of nodes to visualize.
+        """
+        nodes = list(self.graph.nodes)
+        if self.subset_size and self.subset_size < len(nodes):
+            return set(np.random.choice(nodes, self.subset_size, replace=False))
+        return set(nodes)
+
+    def _get_node_traces(self):
+        """
+        Create 3D scatter trace for nodes.
+
+        Returns:
+            go.Scatter3d: Plotly scatter trace for nodes.
+        """
+        x, y, z, colors, labels = [], [], [], [], []
+
+        for node in self.subset_nodes:
+            x.append(self.pos[node][0])
+            y.append(self.pos[node][1])
+            z.append(self.pos[node][2])
+
+            correct = self.node_predictions[node].item() == self.node_ground_truth[node].item()
+            colors.append("green" if correct else "red")
+            labels.append(
+                f"Node {node}<br>Prediction: {self.node_predictions[node].item()}<br>Ground Truth: {self.node_ground_truth[node].item()}")
+
+        return go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="markers",
+            marker=dict(size=8, color=colors, opacity=0.8),
+            text=labels,
+            hoverinfo="text"
+        )
+
+    def _get_edge_traces(self):
+        """
+        Create 3D line traces for edges.
+
+        Returns:
+            list: List of Plotly 3D scatter traces for edges.
+        """
+        edge_traces = []
+
+        for i, (source, target) in enumerate(self.graph.edges):
+            if source not in self.subset_nodes or target not in self.subset_nodes:
+                continue
+
+            x_coords = [self.pos[source][0], self.pos[target][0], None]
+            y_coords = [self.pos[source][1], self.pos[target][1], None]
+            z_coords = [self.pos[source][2], self.pos[target][2], None]
+
+            if self.edge_predictions is not None and self.edge_ground_truth is not None:
+                pred = self.edge_predictions[i] > 0  # Predicted as positive
+                true = self.edge_ground_truth[i].bool()  # Ground truth
+
+                # Skip true negatives
+                if not pred and not true:
+                    continue
+
+                # Determine color for remaining edge types
+                if pred and true:
+                    color = "green"  # Correct prediction
+                elif pred and not true:
+                    color = "blue"  # False positive
+                elif not pred and true:
+                    color = "red"  # False negative
+            else:
+                # If no edge prediction, use gray for all edges
+                color = "gray"
+
+            edge_traces.append(
+                go.Scatter3d(
+                    x=x_coords, y=y_coords, z=z_coords,
+                    mode="lines",
+                    line=dict(color=color, width=2),
+                    hoverinfo="none"
+                )
+            )
+
+        return edge_traces
+
+    def create_dash_app(self):
+        """
+        Creates a Dash app for 3D graph visualization.
+
+        Returns:
+            Dash: A Dash app instance.
+        """
+        node_trace = self._get_node_traces()
+        edge_traces = self._get_edge_traces()
+
+        fig = go.Figure(data=[node_trace] + edge_traces)
+        fig.update_layout(
+            scene=dict(
+                bgcolor="black",  # Black background
+                xaxis=dict(showbackground=False, gridcolor="white"),
+                yaxis=dict(showbackground=False, gridcolor="white"),
+                zaxis=dict(showbackground=False, gridcolor="white")
+            ),
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+
+        app = dash.Dash(__name__)
+        app.layout = html.Div([
+            html.H4("3D Graph Visualization"),
+            dcc.Graph(figure=fig, style={"height": "800px"})
+        ])
+
         return app
 
 
