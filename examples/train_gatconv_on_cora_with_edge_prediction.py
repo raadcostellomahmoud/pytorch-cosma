@@ -4,8 +4,8 @@ from torch.optim import Adam
 from torch_geometric.data import DataLoader
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import to_networkx
+from torch_geometric.utils import train_test_split_edges
 
 from src.config_validation import ConfigModel
 from src.graphs import GraphVisualizer, prepare_edge_labels
@@ -49,7 +49,6 @@ label_mapping = {
     "edge_output": "edge_label",  # Maps to generated edge labels
 }
 
-
 # Add edge_label to data for edge prediction task
 data = prepare_edge_labels(data).to(device)
 
@@ -85,8 +84,9 @@ print(f"Edge Prediction Accuracy: {edge_accuracy:.4f}")
 G = to_networkx(data, to_undirected=True)
 
 # Visualize the graph using the GraphVisualizer
-SUBSET_SIZE = 100  # Configurable subset size
-visualizer = GraphVisualizer(G, node_pred, data.y, subset_size=SUBSET_SIZE)
+SUBSET_SIZE = 750  # Configurable subset size
+visualizer = GraphVisualizer(G, node_pred, data.y, subset_size=SUBSET_SIZE, edge_predictions=edge_pred,
+                             edge_ground_truth=data.edge_label)
 app = visualizer.create_dash_app()
 
 if __name__ == "__main__":

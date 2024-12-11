@@ -8,19 +8,24 @@ from torch_geometric.utils import negative_sampling
 
 
 class GraphVisualizer:
-    def __init__(self, graph, predictions, ground_truth, subset_size=None):
+    def __init__(self, graph, node_predictions, node_ground_truth, subset_size=None, edge_predictions=None,
+                 edge_ground_truth=None):
         """
         Initializes the GraphVisualizer class.
 
         Args:
             graph (networkx.Graph): The graph to visualize.
-            predictions (torch.Tensor): Model predictions for each node.
-            ground_truth (torch.Tensor): Ground truth labels for each node.
+            node_predictions (torch.Tensor): Node-level predictions.
+            node_ground_truth (torch.Tensor): Ground truth labels for nodes.
             subset_size (int, optional): Number of nodes to visualize. If None, visualize all nodes.
+            edge_predictions (torch.Tensor, optional): Edge-level predictions (logits or probabilities).
+            edge_ground_truth (torch.Tensor, optional): Ground truth labels for edges.
         """
         self.graph = graph
-        self.predictions = predictions
-        self.ground_truth = ground_truth
+        self.node_predictions = node_predictions
+        self.node_ground_truth = node_ground_truth
+        self.edge_predictions = edge_predictions
+        self.edge_ground_truth = edge_ground_truth
         self.subset_size = subset_size
         self.elements = self._prepare_elements()
 
@@ -38,7 +43,7 @@ class GraphVisualizer:
         elements = []
         # Add nodes
         for node in nodes:
-            correct = self.predictions[node].item() == self.ground_truth[node].item()
+            correct = self.node_predictions[node].item() == self.node_ground_truth[node].item()
             elements.append(
                 {
                     "data": {
@@ -48,17 +53,50 @@ class GraphVisualizer:
                     }
                 }
             )
+
         # Add edges
-        for source, target in self.graph.edges:
-            if source in nodes and target in nodes:
-                elements.append(
-                    {
-                        "data": {
-                            "source": str(source),
-                            "target": str(target),
+        if self.edge_predictions is not None and self.edge_ground_truth is not None:
+            # Case when edge predictions and ground truth are provided
+            for i, (source, target) in enumerate(self.graph.edges):
+                if source in nodes and target in nodes:
+                    pred = self.edge_predictions[i] > 0  # Predicted as positive
+                    true = self.edge_ground_truth[i].bool()  # Ground truth
+
+                    # Skip true negatives
+                    if not pred and not true:
+                        continue
+
+                    # Determine color for remaining edge types
+                    if pred and true:
+                        color = "green"  # Correct prediction
+                    elif pred and not true:
+                        color = "blue"  # False positive
+                    elif not pred and true:
+                        color = "red"  # False negative
+
+                    elements.append(
+                        {
+                            "data": {
+                                "source": str(source),
+                                "target": str(target),
+                            },
+                            "style": {"line-color": color},
                         }
-                    }
-                )
+                    )
+        else:
+            # Case when only node predictions are provided, visualize all ground truth edges in gray
+            for source, target in self.graph.edges:
+                if source in nodes and target in nodes:
+                    elements.append(
+                        {
+                            "data": {
+                                "source": str(source),
+                                "target": str(target),
+                            },
+                            "style": {"line-color": "gray"},
+                        }
+                    )
+
         return elements
 
     def create_dash_app(self):
@@ -88,7 +126,7 @@ class GraphVisualizer:
                         {
                             "selector": "edge",
                             "style": {
-                                "line-color": "#ccc",
+                                "line-color": "data(color)",
                             },
                         },
                     ],
