@@ -1,0 +1,14 @@
+layers:
+  - name: VisionTransformer
+    type: VisionTransformer
+    input: input
+    output: VisionTransformer_out
+    num_classes: 10  # For CIFAR
+    img_size: 32
+    patch_size: 4
+    in_channels: 3
+    embed_dim: 128
+    num_layers: 4
+    num_heads: 4
+    mlp_dim: 128
+    dropout: 0.1
