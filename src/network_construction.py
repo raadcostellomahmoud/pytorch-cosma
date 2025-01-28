@@ -158,7 +158,19 @@ class BaseModel(nn.Module):
                           dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}})
         print(f"Model exported to {file_path}")
 
-    def perturbed_backprop(self, loss, optimizer):
+    def _perturbed_backprop(self, loss: _Loss, optimizer: Optimizer):
+        """
+        Performs backpropagation with a small perturbation added to the gradients of biases.
+
+        Args:
+            loss (torch.Tensor): The loss tensor to backpropagate.
+            optimizer (torch.optim.Optimizer): The optimizer used to update the model parameters.
+        """
+        if not isinstance(loss, _Loss):
+            raise TypeError("Expected loss to be an instance of torch.nn.modules.loss._Loss")
+        if not isinstance(optimizer, Optimizer):
+            raise TypeError("Expected optimizer to be an instance of torch.optim.Optimizer")
+        
         loss.backward()
 
         # Safely perturb gradients of biases
@@ -212,7 +224,7 @@ class BaseModel(nn.Module):
                 else:
                     loss = loss_function(logits, labels)
 
-                self.perturbed_backprop(loss, optimizer)
+                self._perturbed_backprop(loss, optimizer)
 
                 # Metrics
                 _, predicted = torch.max(logits.data, 1)
@@ -388,7 +400,7 @@ class TwinNetwork(BaseModel):
 
                 # Compute loss
                 loss = loss_function(logits.squeeze(), labels)
-                self.perturbed_backprop(loss, optimizer)
+                self._perturbed_backprop(loss, optimizer)
 
                 # Metrics
                 running_loss += loss.item()
@@ -510,7 +522,7 @@ class GraphModel(BaseModel):
                         task_metrics[task] += metrics[task](preds, labels)
 
                 loss = sum(losses)
-                self.perturbed_backprop(loss, optimizer)
+                self._perturbed_backprop(loss, optimizer)
 
                 for task in loss_functions:
                     label_attr = label_mapping.get(task,
