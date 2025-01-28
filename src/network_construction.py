@@ -53,7 +53,7 @@ class BaseModel(nn.Module):
                 self.functional_layers[layer_name] = layer  # Store in functional_layers
 
     @staticmethod
-    def create_layer(layer_conf: dict) -> nn.Module:
+    def create_layer(layer_conf: dict) -> nn.Module | Callable:
         """
         Creates a layer based on the configuration.
 
@@ -90,7 +90,7 @@ class BaseModel(nn.Module):
                 return layer_class(**valid_layer_conf)
         except TypeError:
             if callable(layer_class):  # For functional utilities
-                return lambda *args, **kwargs: layer_class(*args, **valid_layer_conf, **kwargs)
+                return lambda *args, **kwargs: layer_class(*args, **{**valid_layer_conf, **kwargs})
             else:
                 raise ValueError(f"Cannot instantiate layer: {layer_type}")
 
