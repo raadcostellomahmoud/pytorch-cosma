@@ -139,6 +139,18 @@ class GraphVisualizer:
         )
         return app
 
+    def save_to_html(self, file_path: str) -> None:
+        """
+        Saves the graph visualization as an HTML file.
+
+        Args:
+            file_path (str): The path to save the HTML file.
+        """
+        app = self.create_dash_app()
+        app.run_server(debug=False, port=8050)
+        with open(file_path, "w") as f:
+            f.write(app.index_string)
+
 
 class GraphVisualizer3D:
     def __init__(self, graph, node_predictions, node_ground_truth, subset_size=None, edge_predictions=None,
