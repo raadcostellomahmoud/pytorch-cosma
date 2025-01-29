@@ -8,3 +8,18 @@ class YamlParser:
         with open(self.config_path) as file:
             config = yaml.safe_load(file)
         return config
+
+    def validate(self, config):
+        """
+        Validates the parsed YAML configuration.
+
+        Args:
+            config (dict): The parsed YAML configuration.
+
+        Raises:
+            ValueError: If the configuration is invalid.
+        """
+        required_keys = ["layers"]
+        for key in required_keys:
+            if key not in config:
+                raise ValueError(f"Missing required key: {key}")
