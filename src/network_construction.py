@@ -158,7 +158,7 @@ class BaseModel(nn.Module):
                           dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}})
         print(f"Model exported to {file_path}")
 
-    def _perturbed_backprop(self, loss: _Loss, optimizer: Optimizer):
+    def _perturbed_backprop(self, loss: Tensor, optimizer: Optimizer):
         """
         Performs backpropagation with a small perturbation added to the gradients of biases.
 
@@ -166,8 +166,8 @@ class BaseModel(nn.Module):
             loss (torch.Tensor): The loss tensor to backpropagate.
             optimizer (torch.optim.Optimizer): The optimizer used to update the model parameters.
         """
-        if not isinstance(loss, _Loss):
-            raise TypeError("Expected loss to be an instance of torch.nn.modules.loss._Loss")
+        if not isinstance(loss, Tensor):
+            raise TypeError("Expected loss to be an instance of torch.Tensor")
         if not isinstance(optimizer, Optimizer):
             raise TypeError("Expected optimizer to be an instance of torch.optim.Optimizer")
         
