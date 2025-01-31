@@ -14,7 +14,9 @@ import src.utils as utils
 import src.autoencoders as autoencoders
 import src.vision_transformer as vision_transformer
 from src.autoencoders import BaseAutoencoder
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BaseModel(nn.Module):
     """
@@ -130,7 +132,10 @@ class BaseModel(nn.Module):
         # Apply the layer
         try:
             # Handle layers with multiple inputs
+            logger.debug(f"Layer {layer_name} input shape: {inputs.shape}")
             outputs[layer_conf["output"]] = layer(inputs)
+            logger.debug(f"Layer {layer_name} output shape: {outputs[layer_conf['output']].shape}")
+            
         except TypeError:
             # Handle layers that expect unpacked inputs
             outputs[layer_conf["output"]] = layer(*inputs)

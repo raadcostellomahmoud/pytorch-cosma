@@ -50,3 +50,12 @@ class Subtract(nn.Module):
         """
         input1, input2 = inputs
         return torch.abs(input1 - input2)
+
+class Permute(nn.Module):
+    """Permutes input tensor dimensions"""
+    def __init__(self, dims: list):
+        super().__init__()
+        self.dims = dims
+        
+    def forward(self, x):
+        return x.permute(*self.dims)

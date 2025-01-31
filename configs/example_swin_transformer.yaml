@@ -1,0 +1,77 @@
+layers:
+  # Stage 1
+  - name: patch_embed
+    type: PatchEmbedding
+    input: input
+    output: patch_emb
+    img_size: 32
+    patch_size: 4
+    in_channels: 3
+    embed_dim: 96
+    swin: True
+
+  - name: swin_block1
+    type: SwinBlock
+    input: patch_emb
+    output: stage1_out
+    dim: 96
+    num_heads: 3
+    window_size: 4
+    shifted: False
+
+  - name: swin_block2
+    type: SwinBlock
+    input: stage1_out
+    output: stage1_shifted
+    dim: 96
+    num_heads: 3
+    window_size: 4
+    shifted: True
+
+  # Stage 2 (Downsample)
+  - name: patch_merge1
+    type: PatchMerging
+    input: stage1_shifted
+    output: stage2_in
+    dim: 96
+
+  - name: swin_block3
+    type: SwinBlock
+    input: stage2_in
+    output: stage2_out
+    dim: 192
+    num_heads: 6
+    window_size: 4
+    shifted: False
+
+  # Classification Head
+  - name: permute_before_pool
+    type: Permute
+    input: stage2_out
+    output: permuted_pool_input
+    dims: [0, 2, 1]  # Swap sequence (16) and feature (192) dimensions
+
+  - name: global_pool
+    type: AdaptiveAvgPool1d
+    input: permuted_pool_input
+    output: pooled
+    output_size: 1
+
+  - name: permute_after_pool
+    type: Permute
+    input: pooled
+    output: permuted_pool_output
+    dims: [0, 2, 1]  # Restore original dimension order
+
+  - name: flatten
+    type: Flatten
+    input: pooled
+    output: flattened
+    start_dim: 1  # Flatten from [B, 1, 192] to [B, 192]
+
+  - name: classifier
+    type: Linear
+    input: flattened
+    output: logits
+    in_features: 192
+    out_features: 10
