@@ -9,8 +9,11 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torch_geometric.data import Data as GeomData
 
-import src.layers as layers
-from src.layers import BaseAutoencoder
+import src.basic_layers as basic_layers
+import src.utils as utils
+import src.autoencoders as autoencoders
+import src.vision_transformer as vision_transformer
+from src.autoencoders import BaseAutoencoder
 
 
 class BaseModel(nn.Module):
@@ -76,10 +79,22 @@ class BaseModel(nn.Module):
             import torch_geometric.nn as gnn
             layer_class = getattr(gnn, layer_type, None)
 
-        # If still not found, check in custom layers
+        # If still not found, check in utils
+        if layer_class is None:
+            layer_class = getattr(utils, layer_type, None)
+
+        # If still not found, check in basic_layers
+        if layer_class is None:
+            layer_class = getattr(basic_layers, layer_type, None)
+
+        # If still not found, check in autoencoders
+        if layer_class is None:
+            layer_class = getattr(autoencoders, layer_type, None)
+
+        # If still not found, check in vision_transformer
         if layer_class is None:
             try:
-                layer_class = getattr(layers, layer_type)
+                layer_class = getattr(vision_transformer, layer_type)
             except AttributeError:
                 raise ValueError(f"Unknown layer type: {layer_type}")
 
