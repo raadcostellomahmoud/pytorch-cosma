@@ -1,3 +1,4 @@
+model_class: BaseModel
 layers:
   - name: VisionTransformer
     type: VisionTransformer

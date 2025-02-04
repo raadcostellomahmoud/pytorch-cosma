@@ -8,7 +8,7 @@ from torch_geometric.transforms import NormalizeFeatures
 
 from src.config_validation import ConfigModel
 from src.model_yaml_parser import YamlParser
-from src.network_construction import GraphModel
+from src.network_construction import GraphModel  # Ensure this import is present
 
 
 class TestNodeClassificationPipeline(unittest.TestCase):
@@ -24,9 +24,10 @@ class TestNodeClassificationPipeline(unittest.TestCase):
         # Parse model configuration
         raw_config = YamlParser("configs/example_gatconv_network.yaml").parse()
         cls.validated_config = ConfigModel(**raw_config).to_dict()
+        model_class = globals()[cls.validated_config.pop("model_class")]
 
         # Initialize model
-        cls.model = GraphModel(cls.validated_config).to(cls.device)
+        cls.model = model_class(cls.validated_config).to(cls.device)
 
         # Optimizer
         cls.optimizer = Adam(cls.model.parameters(), lr=0.005, weight_decay=5e-4)

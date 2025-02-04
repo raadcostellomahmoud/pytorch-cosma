@@ -24,7 +24,8 @@ class TestSwinTransformer(unittest.TestCase):
     def setUp(self):
         parser = YamlParser("configs/example_swin_transformer.yaml")
         self.config = parser.parse()
-        self.model = BaseModel(self.config)
+        model_class = globals()[self.config.pop("model_class")]
+        self.model = model_class(self.config)
 
     def test_patch_embedding_shape(self):
         layer = PatchEmbedding(img_size=32, patch_size=4,
@@ -156,7 +157,8 @@ class TestCIFAR10Training(unittest.TestCase):
         # Shared model setup
         parser = YamlParser("configs/example_swin_transformer.yaml")
         config = parser.parse()
-        self.model = BaseModel(config)
+        model_class = globals()[config.pop("model_class")]
+        self.model = model_class(config)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-3)
         self.criterion = torch.nn.CrossEntropyLoss()
 

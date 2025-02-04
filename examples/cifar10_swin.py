@@ -2,15 +2,21 @@ import torch
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
-from src.network_construction import BaseModel
+from src.config_validation import ConfigModel
+from src.network_construction import BaseModel, TwinNetwork, GraphModel
 from src.model_yaml_parser import YamlParser
+
+# Define device (GPU/CPU)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Load config
 parser = YamlParser("configs/example_swin_transformer.yaml")
-config = parser.parse()
+raw_config = parser.parse()
+validated_config = ConfigModel(**raw_config).to_dict()
 
 # Initialize model
-model = BaseModel(config, use_reconstruction=False)
+model_class = validated_config.pop("model_class")
+model = globals()[model_class](validated_config, device=device)
 
 # CIFAR-10 Data
 train_data = CIFAR10(root="./data", train=True, download=True, transform=ToTensor())

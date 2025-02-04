@@ -29,9 +29,10 @@ class TestAutoencoderPipeline(unittest.TestCase):
         # Load configuration from YAML
         cls.raw_config = YamlParser("configs/example_conv_autoencoder.yaml").parse()
         cls.validated_config = ConfigModel(**cls.raw_config).to_dict()
-
+        model_class = globals()[cls.validated_config.pop("model_class")]
+        
         # Create model
-        cls.model = BaseModel(cls.validated_config, use_reconstruction=True, device=cls.device)
+        cls.model = model_class(cls.validated_config, use_reconstruction=True, device=cls.device)
 
         cls.loss_function = nn.MSELoss()
         cls.optimizer = torch.optim.Adam(cls.model.parameters(), lr=1e-3)

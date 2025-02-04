@@ -1,3 +1,4 @@
+model_class: TwinNetwork
 layers:
   # Shared feature extractor (applies to both inputs)
   - name: conv1

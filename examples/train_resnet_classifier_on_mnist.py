@@ -13,7 +13,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Load configuration and model
 raw_config = YamlParser("configs/example_model.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
-model = BaseModel(validated_config, device=device)
+model_class = validated_config.pop("model_class")
+model = globals()[model_class](validated_config, device=device)
 
 # Load dataset
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
@@ -24,10 +25,15 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 # Train and evaluate
-model.train_model(train_loader=train_loader,
-                  optimizer=optim.Adam(model.parameters(), lr=0.001),
-                  loss_function=nn.CrossEntropyLoss(),
-                  )
+for epoch in range(10):  # Assuming 10 epochs
+    model.train_model(train_loader=train_loader,
+                      optimizer=optim.Adam(model.parameters(), lr=0.001),
+                      loss_function=nn.CrossEntropyLoss(), epochs=1
+                      )
+    val_accuracy = model.evaluate(test_loader=test_loader,
+                                  loss_function=nn.CrossEntropyLoss())
+    print(f"Epoch {epoch + 1}, Validation Accuracy: {val_accuracy:.2f}%")
+
 test_accuracy = model.evaluate(test_loader=test_loader,
                                loss_function=nn.CrossEntropyLoss())
 print(f"Final Test Accuracy: {test_accuracy:.2f}%")

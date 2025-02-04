@@ -9,7 +9,7 @@ from torch_geometric.utils import to_networkx
 from src.config_validation import ConfigModel
 from src.graphs import GraphVisualizer
 from src.model_yaml_parser import YamlParser
-from src.network_construction import GraphModel
+from src.network_construction import GraphModel, BaseModel, TwinNetwork
 
 # Load dataset
 dataset = Planetoid(root='data/Cora', name='Cora', transform=NormalizeFeatures())
@@ -21,9 +21,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Parse model configuration
 raw_config = YamlParser("configs/example_gatconv_network.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
+model_class = validated_config.pop("model_class")
 
 # Initialize model
-model = GraphModel(validated_config).to(device)
+model = globals()[model_class](validated_config).to(device)
 # Create DataLoader
 data_loader = DataLoader([data], batch_size=1, shuffle=False)
 

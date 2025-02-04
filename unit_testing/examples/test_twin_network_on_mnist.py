@@ -36,7 +36,8 @@ class TestTwinNetworkPipeline(unittest.TestCase):
         # Load configuration and initialize model
         cls.raw_config = YamlParser("configs/example_twin_network.yaml").parse()
         cls.validated_config = ConfigModel(**cls.raw_config).to_dict()
-        cls.model = TwinNetwork(cls.validated_config).to(cls.device)
+        model_class = globals()[cls.validated_config.pop("model_class")]
+        cls.model = model_class(cls.validated_config).to(cls.device)
 
         # Loss and optimizer
         cls.loss_function = nn.BCEWithLogitsLoss()

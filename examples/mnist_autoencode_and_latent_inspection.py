@@ -7,7 +7,7 @@ from torchvision import datasets, transforms
 from src.config_validation import ConfigModel
 from src.latent_space import LatentSpaceExplorer, Visualizer
 from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
+from src.network_construction import BaseModel, TwinNetwork, GraphModel
 
 classification_loss_weight = 0.1
 
@@ -24,8 +24,7 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 # Load configuration from YAML
-raw_config = YamlParser(
-    "configs/example_conv_autoencoder.yaml").parse()  # raw_config is a dictionary from the YAML file
+raw_config = YamlParser("configs/example_conv_autoencoder.yaml").parse()
 
 # Validate configuration
 try:
@@ -33,9 +32,10 @@ try:
 except ValueError as e:
     print("Configuration validation failed:", e)
     exit(1)
+model_class = validated_config.pop("model_class")
 
 # Create model from configuration
-model = BaseModel(validated_config, use_reconstruction=True, device=device)
+model = globals()[model_class](validated_config, use_reconstruction=True, device=device)
 
 # Train the model
 model.train_model(epochs=5, train_loader=train_loader,

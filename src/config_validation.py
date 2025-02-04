@@ -1,6 +1,7 @@
 import torch.nn as nn
 from collections import defaultdict
 from typing import List, Union
+from src.network_reconstruction import BaseModel, TwinNetwork, GraphModel  # Import valid model classes
 
 # Base Layer Config
 class BaseLayerConfig:
@@ -21,16 +22,16 @@ class AddLayerConfig(BaseLayerConfig):
 
 # Class to handle configuration and validation
 class ConfigModel:
-    def __init__(self, layers: List[dict]):
-        # Parse the layers from the YAML
+    def __init__(self, model_class: str, layers: List[dict]):
+        self.model_class = model_class
         self.layers = layers
+        
         # Validate the parsed layers
-
         self.graph_specific_inputs = {"x", "edge_index", "batch"}  # GNN-specific inputs
         self.validate()
 
     def validate(self):
-        # Validate that layer names are unique
+        self.validate_model_class()  # Validate the model class
         self.ensure_unique_layer_names()
 
         # Validate that each layer's input is defined earlier as an output
@@ -41,6 +42,11 @@ class ConfigModel:
 
         # Validate that there are no cycles in the layer dependencies
         self.detect_cycles()
+
+    def validate_model_class(self):
+        valid_classes = {"BaseModel": BaseModel, "TwinNetwork": TwinNetwork, "GraphModel": GraphModel}
+        if self.model_class not in valid_classes:
+            raise ValueError(f"Invalid model class '{self.model_class}'. Valid options are: {list(valid_classes.keys())}")
 
     def ensure_unique_layer_names(self):
         layer_names = [layer['name'] for layer in self.layers]
@@ -96,5 +102,4 @@ class ConfigModel:
                     raise ValueError("Cycle detected in layer dependencies.")
 
     def to_dict(self):
-        # Convert the ConfigModel to a dictionary, returning only the layers
-        return {"layers": self.layers}
+        return {"model_class": self.model_class, "layers": self.layers}

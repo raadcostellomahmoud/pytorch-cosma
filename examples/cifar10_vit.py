@@ -6,9 +6,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 from src.config_validation import ConfigModel
-from src.layers import VisionTransformer
 from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
+from src.network_construction import BaseModel, TwinNetwork, GraphModel
 
 # Define device (GPU/CPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -16,7 +15,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Load configuration and model
 raw_config = YamlParser("configs/example_vit_model.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
-model = BaseModel(validated_config, device=device)
+model_class = raw_config.pop("model_class")
+model = globals()[model_class](validated_config, device=device)
 
 # Training Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

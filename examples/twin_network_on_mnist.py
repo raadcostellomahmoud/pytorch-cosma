@@ -8,7 +8,7 @@ from torchvision import datasets, transforms
 from src.config_validation import ConfigModel
 from src.latent_space import LatentSpaceExplorer, Visualizer
 from src.model_yaml_parser import YamlParser
-from src.network_construction import TwinNetwork
+from src.network_construction import TwinNetwork, BaseModel, GraphModel
 from utilities.twin_dataset_maker import TwinDatasetFromDataset
 
 # Define device (GPU/CPU)
@@ -34,16 +34,20 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 # Load configuration from YAML
 raw_config = YamlParser("configs/example_twin_network.yaml").parse()
 validated_config = ConfigModel(**raw_config).to_dict()
+model_class = validated_config.pop("model_class")
 
 # Initialize the model
-model = TwinNetwork(validated_config).to(device)
+model = globals()[model_class](validated_config).to(device)
 
 # Loss function and optimizer
 loss_function = nn.BCEWithLogitsLoss()  # Binary Cross-Entropy with logits
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-model.train_model(epochs=5, train_loader=train_loader, optimizer=optimizer, loss_function=loss_function)
-model.evaluate(test_loader=test_loader, loss_function=loss_function)
+# Train and evaluate
+for epoch in range(epochs):
+    model.train_model(epochs=1, train_loader=train_loader, optimizer=optimizer, loss_function=loss_function)
+    val_accuracy = model.evaluate(test_loader=test_loader, loss_function=loss_function)
+    print(f"Epoch {epoch + 1}, Validation Accuracy: {val_accuracy:.2f}%")
 
 individ_train_loader = DataLoader(mnist_train, batch_size=64, shuffle=True)
 

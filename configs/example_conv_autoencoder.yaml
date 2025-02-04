@@ -1,3 +1,4 @@
+model_class: BaseModel
 layers:
   - name: convae1
     type: ConvAutoencoder

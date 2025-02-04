@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 
 from src.config_validation import ConfigModel
 from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
+from src.network_construction import BaseModel  # Ensure this import is present
 
 
 class TestModelPipeline(unittest.TestCase):
@@ -18,9 +18,10 @@ class TestModelPipeline(unittest.TestCase):
         # Load configuration
         raw_config = YamlParser("configs/example_model.yaml").parse()
         cls.validated_config = ConfigModel(**raw_config).to_dict()
+        model_class = globals()[cls.validated_config.pop("model_class")]
 
         # Initialize model
-        cls.model = BaseModel(cls.validated_config, device=cls.device)
+        cls.model = model_class(cls.validated_config, device=cls.device)
 
         # Prepare dataset and dataloaders
         transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])

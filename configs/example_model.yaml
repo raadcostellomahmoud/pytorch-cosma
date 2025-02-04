@@ -1,3 +1,4 @@
+model_class: BaseModel
 layers:
   - name: conv1
     type: Conv2d
