@@ -20,7 +20,7 @@ class TestCIFAR10ViT(unittest.TestCase):
         # Load configuration and model
         cls.raw_config = YamlParser("configs/example_vit_model.yaml").parse()
         cls.validated_config = ConfigModel(**cls.raw_config).to_dict()
-        model_class = cls.validated_config.pop("model_class")
+        model_class = globals()[cls.validated_config.pop("model_class")]
         cls.model = model_class(cls.validated_config, device=cls.device)
 
         # Training Setup
