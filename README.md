@@ -7,20 +7,7 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 ## Project Structure
 
 ```
-├── .gitignore
-├── .vscode/
-│   ├── launch.json
-│   └── settings.json
-├── configs/
-│   ├── example_conv_autoencoder.yaml
-│   ├── example_gatconv_network.yaml
-│   ├── ...
-├── data/
-├── examples/
-│   ├── mnist_autoencode_and_latent_inspection.py
-│   └── ...
-├── README.md
-├── src/
+├── pytorch_cosma/
 │   ├── config_validation.py
 │   ├── autoencoders.py
 │   ├── basic_layers.py
@@ -29,13 +16,25 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 │   ├── graphs.py
 │   ├── latent_space.py
 │   ├── model_yaml_parser.py
-│   └── network_construction.py
+│   ├── network_construction.py
+│   └──twin_dataset_maker.py
+├── configs/
+│   ├── example_conv_autoencoder.yaml
+│   ├── example_gatconv_network.yaml
+│   └── ...
+├── examples/
+│   ├── mnist_autoencode_and_latent_inspection.py
+│   └── ...
 ├── unit_testing/
 │   └── examples/
 │       └── test_mnist_autoencode_and_latent_inspection.py
 │       └── ...
-├── utilities
-│   └── twin_dataset_maker.py
+├── data/
+├── README.md
+├── .gitignore
+├── .vscode/
+│   ├── launch.json
+│   └── settings.json
 ```
 
 ## Installation
