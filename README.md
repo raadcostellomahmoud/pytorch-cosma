@@ -39,22 +39,30 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 ```
 
 ## Installation
-
-1. Clone the repository:
-    ```sh
-    git clone https://github.com/yourusername/pytorch-cosma.git
-    cd pytorch-cosma
-    ```
-
-2. Create a virtual environment and activate it:
+1. Create a virtual environment and activate it:
     ```sh
     python -m venv venv
     source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
     ```
 
+You can either install the package directly from PyPI or clone the repository and install the dependencies manually:
+
+### Option 1: Install from PyPI
+2. Install the package:
+    ```sh
+    pip install pytorch-cosma
+    ```
+
+### Option 2: Clone the Repository
+2. Clone the repository:
+    ```sh
+    git clone https://github.com/yourusername/pytorch-cosma.git
+    cd pytorch-cosma
+    ```
+
 3. Install the required dependencies:
     ```sh
-    pip install -r requirements.txt
+    pip install .
     ```
 
 ## Usage
