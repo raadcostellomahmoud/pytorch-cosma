@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 class Add(nn.Module):
     """
@@ -59,3 +60,28 @@ class Permute(nn.Module):
         
     def forward(self, x):
         return x.permute(*self.dims)
+    
+class Concat(nn.Module):
+    """Concatenates inputs along a dimension."""
+    def __init__(self, dim=-1, **kwargs):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, inputs: list[Tensor]) -> Tensor:
+        return torch.cat(inputs, dim=self.dim)
+    
+class EdgeScorer(nn.Module):
+    """Predicts edge scores from node embeddings and edge_index."""
+    def __init__(self, in_features, hidden_dim=128, **kwargs):
+        super().__init__()
+        self.edge_mlp = nn.Sequential(
+            nn.Linear(in_features * 2, hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, inputs: list[Tensor]) -> Tensor:
+        x, edge_index = inputs
+        source = x[edge_index[0]]
+        target = x[edge_index[1]]
+        return self.edge_mlp(torch.cat([source, target], dim=-1)).squeeze()
