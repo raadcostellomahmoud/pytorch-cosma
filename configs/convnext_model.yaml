@@ -1,0 +1,31 @@
+model_class: BaseModel
+layers:
+  - name: conv1
+    type: Conv2d
+    input: input
+    output: conv1_out
+    in_channels: 1
+    out_channels: 3
+    kernel_size: 1
+    stride: 1
+    padding: 1
+  - name: convnext
+    type: ConvNeXt
+    input: conv1_out
+    output: convnext_out
+    block_setting:
+      - input_channels: 96
+        out_channels: 192
+        num_layers: 1
+      # - input_channels: 192
+      #   out_channels: 384
+      #   num_layers: 1
+      # - input_channels: 384
+      #   out_channels: 768
+      #   num_layers: 1
+      - input_channels: 192
+        out_channels: null
+        num_layers: 1
+    stochastic_depth_prob: 0.1
+    layer_scale: 0.0001
+    num_classes: 10
