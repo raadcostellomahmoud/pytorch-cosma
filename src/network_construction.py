@@ -9,14 +9,10 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torch_geometric.data import Data as GeomData
 
-import src.basic_layers as basic_layers
-import src.utils as utils
-import src.autoencoders as autoencoders
-import src.vision_transformer as vision_transformer
 from src.autoencoders import BaseAutoencoder
 import logging
-
 logger = logging.getLogger(__name__)
+
 
 class BaseModel(nn.Module):
     """
@@ -33,7 +29,8 @@ class BaseModel(nn.Module):
     def __init__(self, config: dict, device: DeviceType = None, use_reconstruction: bool = False) -> None:
 
         super(BaseModel, self).__init__()
-        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device if device else torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.layers = nn.ModuleDict()  # Store layers in a dict by name
         self.functional_layers = {}
         self.config = config
@@ -49,13 +46,15 @@ class BaseModel(nn.Module):
         """
         for layer_conf in self.config["layers"]:
             layer_name = layer_conf["name"]
-            layer = self.create_layer(layer_conf)  # Create layer based on config
+            # Create layer based on config
+            layer = self.create_layer(layer_conf)
 
             # Check if the layer is functional (not an nn.Module)
             if isinstance(layer, nn.Module):
                 self.layers[layer_name] = layer  # Store in ModuleDict
             else:
-                self.functional_layers[layer_name] = layer  # Store in functional_layers
+                # Store in functional_layers
+                self.functional_layers[layer_name] = layer
 
     @staticmethod
     def create_layer(layer_conf: dict) -> nn.Module | Callable:
@@ -75,7 +74,11 @@ class BaseModel(nn.Module):
 
         # First, try to fetch the layer from torch.nn
         layer_class = getattr(nn, layer_type, None)
-
+        
+        # Instantiate the layer with the remaining configuration
+        valid_layer_conf = {k: v for k, v in layer_conf.items() if k not in [
+            "input", "output", "name"]}
+        
         # If not found in torch.nn, check in torch_geometric.nn
         if layer_class is None:
             import torch_geometric.nn as gnn
@@ -83,25 +86,35 @@ class BaseModel(nn.Module):
 
         # If still not found, check in utils
         if layer_class is None:
+            import src.utils as utils
             layer_class = getattr(utils, layer_type, None)
 
         # If still not found, check in basic_layers
         if layer_class is None:
+            import src.basic_layers as basic_layers
             layer_class = getattr(basic_layers, layer_type, None)
 
         # If still not found, check in autoencoders
         if layer_class is None:
+            import src.autoencoders as autoencoders
             layer_class = getattr(autoencoders, layer_type, None)
 
         # If still not found, check in vision_transformer
         if layer_class is None:
-            try:
-                layer_class = getattr(vision_transformer, layer_type)
-            except AttributeError:
-                raise ValueError(f"Unknown layer type: {layer_type}")
+            import src.vision_transformer as vision_transformer
+            layer_class = getattr(vision_transformer, layer_type, None)
 
-        # Instantiate the layer with the remaining configuration
-        valid_layer_conf = {k: v for k, v in layer_conf.items() if k not in ["input", "output", "name"]}
+        # If still not found, check in torchvision.models for ConvNeXt
+        if layer_class is None:
+            import torchvision.models.convnext as convnext
+            layer_class = getattr(convnext, layer_type, None)
+            if layer_class is not None:
+                block_setting = valid_layer_conf.pop("block_setting")
+                valid_layer_conf["block_setting"] = [convnext.CNBlockConfig(**block) for block in block_setting]
+
+        if layer_class is None:
+            raise ValueError(f"Unknown layer type: {layer_type}")
+
         try:
             if issubclass(layer_class, nn.Module):
                 return layer_class(**valid_layer_conf)
@@ -120,7 +133,6 @@ class BaseModel(nn.Module):
 
         # Get inputs for this layer (can be a list or a single tensor)
         input_names = layer_conf["input"]
-
         # Case 1: Single input
         if isinstance(input_names, str):  # Single input tensor
             inputs = outputs[input_names]
@@ -132,23 +144,36 @@ class BaseModel(nn.Module):
         # Apply the layer
         try:
             # Handle layers with multiple inputs
-            logger.debug(f"Layer {layer_name} input shape: {inputs.shape}")
+            try:
+                logger.debug(f"Layer {layer_name} input shape: {inputs.shape}")
+            except:
+                # Handle layers that expect unpacked inputs
+                for i, input_tensor in enumerate(inputs):
+                    logger.debug(f"Layer {layer_name} input {i} shape: {input_tensor.shape}")
             outputs[layer_conf["output"]] = layer(inputs)
-            logger.debug(f"Layer {layer_name} output shape: {outputs[layer_conf['output']].shape}")
-            
+
         except TypeError:
-            # Handle layers that expect unpacked inputs
             outputs[layer_conf["output"]] = layer(*inputs)
+        
+        try:
+            logger.debug(f"Layer {layer_name} output shape: {outputs[layer_conf['output']].shape}")
+        except:
+            # Handle layers that produce multiple outputs
+            for i, output_tensor in enumerate(outputs[layer_conf["output"]]):
+                logger.debug(f"Layer {layer_name} output {i} shape: {output_tensor.shape}")
         return inputs, layer, outputs
 
     def forward(self, x: Tensor, return_latent=False) -> Tensor:
-        x = x.to(self.device)  # Ensure input is on the same device as the model
-        outputs = {"input": x}  # Track all outputs by name, starting with the input tensor
+        # Ensure input is on the same device as the model
+        x = x.to(self.device)
+        # Track all outputs by name, starting with the input tensor
+        outputs = {"input": x}
         latent = None
 
         # Iterate through the layers defined in the config
         for layer_conf in self.config["layers"]:
-            inputs, layer, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+            inputs, layer, outputs = self._core_iterate_through_layers(
+                layer_conf, outputs)
 
             if isinstance(layer, BaseAutoencoder):
                 latent = layer(inputs, return_latent)
@@ -189,17 +214,20 @@ class BaseModel(nn.Module):
         if not isinstance(loss, Tensor):
             raise TypeError("Expected loss to be an instance of torch.Tensor")
         if not isinstance(optimizer, Optimizer):
-            raise TypeError("Expected optimizer to be an instance of torch.optim.Optimizer")
-        
+            raise TypeError(
+                "Expected optimizer to be an instance of torch.optim.Optimizer")
+
         loss.backward()
 
         # Safely perturb gradients of biases
         for name, layer in self.layers.items():
             if hasattr(layer, 'bias') and layer.bias is not None:
                 if layer.bias.grad is not None:
-                    layer.bias.grad.data.add_(torch.randn_like(layer.bias.grad) * 1e-6)
+                    layer.bias.grad.data.add_(
+                        torch.randn_like(layer.bias.grad) * 1e-6)
                 else:
-                    print(f"Warning: Gradient for bias in layer '{name}' is None.")
+                    print(
+                        f"Warning: Gradient for bias in layer '{name}' is None.")
 
         optimizer.step()
 
@@ -239,7 +267,8 @@ class BaseModel(nn.Module):
                 # Compute loss
                 if self.use_reconstruction:
                     reconstruction_loss = loss_function(reconstructed, inputs)
-                    classification_loss = nn.functional.cross_entropy(logits, labels)
+                    classification_loss = nn.functional.cross_entropy(
+                        logits, labels)
                     loss = reconstruction_loss + classification_loss_weight * classification_loss
                 else:
                     loss = loss_function(logits, labels)
@@ -255,7 +284,8 @@ class BaseModel(nn.Module):
 
             avg_loss = running_loss / len(train_loader)
             accuracy = 100 * correct / total
-            print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
+            print(
+                f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
     def evaluate(self, test_loader: DataLoader, loss_function: _Loss) -> float:
         """
@@ -348,7 +378,8 @@ class TwinNetwork(BaseModel):
 
             # For layers that process both inputs (e.g., Subtract, Add, etc.)
             if isinstance(layer_conf["input"], list):
-                inputs = [outputs1[layer_conf["input"][0]], outputs2[layer_conf["input"][1]]]
+                inputs = [outputs1[layer_conf["input"][0]],
+                          outputs2[layer_conf["input"][1]]]
                 outputs1[layer_conf["output"]] = layer(inputs)
 
             # If the layer is a feature extractor (e.g., final shared encoder layer), capture latent space
@@ -411,7 +442,8 @@ class TwinNetwork(BaseModel):
             for data in train_loader:
                 # Handle paired inputs
                 x1, x2, labels = data
-                x1, x2, labels = x1.to(self.device), x2.to(self.device), labels.to(self.device)
+                x1, x2, labels = x1.to(self.device), x2.to(
+                    self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
 
@@ -445,7 +477,8 @@ class TwinNetwork(BaseModel):
         with torch.no_grad():
             for data in test_loader:
                 x1, x2, labels = data
-                x1, x2, labels = x1.to(self.device), x2.to(self.device), labels.to(self.device)
+                x1, x2, labels = x1.to(self.device), x2.to(
+                    self.device), labels.to(self.device)
                 logits = self.forward(x1, x2)
                 loss = loss_function(logits.squeeze(), labels)
 
@@ -481,7 +514,8 @@ class GraphModel(BaseModel):
 
         # Iterate through the layers defined in the config
         for layer_conf in self.config["layers"]:
-            _, _, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+            _, _, outputs = self._core_iterate_through_layers(
+                layer_conf, outputs)
 
         # Collect specified outputs
         model_outputs = {}
@@ -498,7 +532,8 @@ class GraphModel(BaseModel):
             train_loader: DataLoader,
             loss_functions: Dict[str, _Loss],
             optimizer: Optimizer,
-            metrics: Optional[Dict[str, Callable[[torch.Tensor, torch.Tensor], float]]] = None,
+            metrics: Optional[Dict[str, Callable[[
+                torch.Tensor, torch.Tensor], float]]] = None,
             label_mapping: dict = None,  # Map task names to dataset attributes
             epochs: int = 10,
             **kwargs
@@ -548,21 +583,26 @@ class GraphModel(BaseModel):
                     label_attr = label_mapping.get(task,
                                                    task) if label_mapping else task  # Default to task name if mapping is not provided
                     labels = getattr(data, label_attr).to(self.device)
-                    running_loss[task] += loss_functions[task](outputs[task], labels).item()
+                    running_loss[task] += loss_functions[task](
+                        outputs[task], labels).item()
 
-            avg_loss = {task: running_loss[task] / len(train_loader) for task in loss_functions}
+            avg_loss = {
+                task: running_loss[task] / len(train_loader) for task in loss_functions}
             avg_metrics = (
-                {task: score / len(train_loader) for task, score in task_metrics.items()}
+                {task: score / len(train_loader)
+                 for task, score in task_metrics.items()}
                 if metrics
                 else None
             )
-            print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss}, Metrics: {avg_metrics}")
+            print(
+                f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss}, Metrics: {avg_metrics}")
 
     def evaluate(
             self,
             test_loader: DataLoader,
             loss_functions: Dict[str, _Loss],
-            metrics: Optional[Dict[str, Callable[[torch.Tensor, torch.Tensor], float]]] = None,
+            metrics: Optional[Dict[str, Callable[[
+                torch.Tensor, torch.Tensor], float]]] = None,
             label_mapping: dict = None,  # Map task names to dataset attributes
             **kwargs
     ) -> dict[str, dict[str, float] | None]:
@@ -585,9 +625,11 @@ class GraphModel(BaseModel):
                     if metrics and task in metrics:
                         task_metrics[task] += metrics[task](preds, labels)
 
-        avg_loss = {task: running_loss[task] / len(test_loader) for task in loss_functions}
+        avg_loss = {task: running_loss[task] /
+                    len(test_loader) for task in loss_functions}
         avg_metrics = (
-            {task: score / len(test_loader) for task, score in task_metrics.items()}
+            {task: score / len(test_loader)
+             for task, score in task_metrics.items()}
             if metrics
             else None
         )
