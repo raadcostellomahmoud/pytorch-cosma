@@ -14,10 +14,7 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 ├── configs/
 │   ├── example_conv_autoencoder.yaml
 │   ├── example_gatconv_network.yaml
-│   ├── example_gatconv_node_and_edge.yaml
-│   ├── example_model.yaml
-│   ├── example_twin_network.yaml
-│   └── example_vit_model.yaml
+│   ├── ...
 ├── data/
 ├── examples/
 │   ├── mnist_autoencode_and_latent_inspection.py
@@ -25,15 +22,20 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 ├── README.md
 ├── src/
 │   ├── config_validation.py
+│   ├── autoencoders.py
+│   ├── basic_layers.py
+│   ├── utils.py
+│   ├── vision_transformer.py
 │   ├── graphs.py
 │   ├── latent_space.py
-│   ├── layers.py
 │   ├── model_yaml_parser.py
 │   └── network_construction.py
 ├── unit_testing/
 │   └── examples/
 │       └── test_mnist_autoencode_and_latent_inspection.py
+│       └── ...
 ├── utilities
+│   └── twin_dataset_maker.py
 ```
 
 ## Installation
@@ -165,6 +167,7 @@ This project uses the following libraries:
 - [Torch Geometric](https://pytorch-geometric.readthedocs.io/)
 - [Dash](https://dash.plotly.com/)
 - [UMAP](https://umap-learn.readthedocs.io/)
+- [Torchvision](https://pytorch.org/vision/stable/index.html)
 
 ## Contact
 
