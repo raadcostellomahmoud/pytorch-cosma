@@ -1,0 +1,66 @@
+model_class: MultiModalGATModel
+layers:
+  # --- Image Processing Branch ---
+  - name: cnn1
+    type: Conv2d
+    input: x_images
+    output: x_cnn
+    in_channels: 3
+    out_channels: 64
+    kernel_size: 3
+    padding: 1
+  - name: activation1
+    type: LeakyReLU
+    input: x_cnn
+    output: x_cnn
+  - name: flatten
+    type: Flatten
+    input: x_cnn
+    output: x_cnn
+
+  # --- Sequence Processing Branch ---
+  - name: one_hot_proj
+    type: Linear
+    input: x_one_hot
+    output: x_seq
+    in_features: 4  # One-hot encoded DNA base dimension
+    out_features: 128
+  - name: transformer
+    type: TransformerEncoder
+    input: x_seq
+    output: x_seq
+    d_model: 128
+    nhead: 4
+    num_layers: 2
+
+  # --- Feature Fusion ---
+  - name: concat
+    type: Concat  # Assume you have a custom concatenation layer
+    input: [x_cnn, x_seq]
+    output: x_combined
+    dim: -1
+
+  # --- GAT Layers ---
+  - name: gat1
+    type: GATConv
+    input: x_combined
+    output: x_gat
+    in_channels: 192  # CNN (64) + Seq (128) = 192
+    out_channels: 256
+    heads: 2
+  - name: gat2
+    type: GATConv
+    input: x_gat
+    output: x_gat
+    in_channels: 256 * 2  # GAT heads
+    out_channels: 256
+  - name: node_predictor
+    type: Linear
+    input: x_gat
+    output: node_output
+    in_features: 256
+    out_features: 1  # Binary classification
+  - name: edge_predictor
+    type: EdgeScorer  # Custom layer (uses edge_index)
+    input: [x_gat, edge_index]
+    output: edge_output

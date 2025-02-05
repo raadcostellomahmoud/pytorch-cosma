@@ -3,7 +3,7 @@ from typing import Optional, Dict, Callable
 import torch
 import torch.nn as nn
 from onnx.backend.base import DeviceType
-from torch import Tensor
+from torch import Tensor, combinations
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
@@ -637,3 +637,35 @@ class GraphModel(BaseModel):
         )
         print(f"Test Results - Loss: {avg_loss}, Metrics: {avg_metrics}")
         return {"loss": avg_loss, "metrics": avg_metrics}
+
+class MultiModalGATModel(BaseModel):
+    """
+    Handles multi-modal inputs (images + sequences) and GAT-specific logic.
+    """
+    def __init__(self, config: dict, device=None, **kwargs):
+        super().__init__(config, device, **kwargs)
+
+    def forward(self, data: GeomData) -> Dict[str, Tensor]:
+        # Process inputs through layers defined in YAML
+        outputs = {
+            "x_images": data.x_images.float().to(self.device),
+            "x_one_hot": data.x_one_hot.float().to(self.device)
+        }
+
+        # Run all layers from the YAML config
+        for layer_conf in self.config["layers"]:
+            _, _, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+
+        # Generate edge_index dynamically (all-to-all connectivity)
+        num_nodes = outputs["x_combined"].shape[0]  # Assume fusion layer outputs "x_combined"
+        edge_index = combinations(torch.arange(num_nodes), r=2).t().to(self.device)
+
+        # Apply GAT layers (defined in YAML)
+        gat_outputs = {
+            "x_combined": outputs["x_combined"],
+            "edge_index": edge_index
+        }
+        for layer_conf in self.config["gat_layers"]:  # Optional: Separate GAT layers
+            _, _, gat_outputs = self._core_iterate_through_layers(layer_conf, gat_outputs)
+
+        return gat_outputs

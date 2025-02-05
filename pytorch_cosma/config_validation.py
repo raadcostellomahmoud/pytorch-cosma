@@ -1,7 +1,7 @@
 import torch.nn as nn
 from collections import defaultdict
 from typing import List, Union
-from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel  # Import valid model classes
+from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel, MultiModalGATModel  # Import valid model classes
 
 # Base Layer Config
 class BaseLayerConfig:
@@ -44,7 +44,7 @@ class ConfigModel:
         self.detect_cycles()
 
     def validate_model_class(self):
-        valid_classes = {"BaseModel": BaseModel, "TwinNetwork": TwinNetwork, "GraphModel": GraphModel}
+        valid_classes = {"BaseModel": BaseModel, "TwinNetwork": TwinNetwork, "GraphModel": GraphModel, "MultiModalGATModel": MultiModalGATModel}
         if self.model_class not in valid_classes:
             raise ValueError(f"Invalid model class '{self.model_class}'. Valid options are: {list(valid_classes.keys())}")
 
@@ -54,7 +54,7 @@ class ConfigModel:
             raise ValueError("Layer names must be unique.")
 
     def validate_named_inputs_outputs(self):
-        output_names = set(["input"])  # Start with 'input' as the initial input
+        output_names = set(["input", "x_images", "x_one_hot"])  # Start with 'input' as the initial input
         output_names.update(self.graph_specific_inputs)
         for layer in self.layers:
             input_names = layer['input'] if isinstance(layer['input'], list) else [layer['input']]
