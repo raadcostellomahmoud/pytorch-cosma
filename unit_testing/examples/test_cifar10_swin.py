@@ -8,10 +8,10 @@ from torch.utils.data import DataLoader, Subset
 import yaml
 from torch import nn
 
-from src.basic_layers import Permute
-from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
-from src.vision_transformer import PatchEmbedding, PatchMerging, SwinBlock
+from pytorch_cosma.basic_layers import Permute
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import BaseModel
+from pytorch_cosma.vision_transformer import PatchEmbedding, PatchMerging, SwinBlock
 
 
 class TestSwinTransformer(unittest.TestCase):

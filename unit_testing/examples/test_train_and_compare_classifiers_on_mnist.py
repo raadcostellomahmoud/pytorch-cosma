@@ -4,9 +4,9 @@ from torch import optim, nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from src.config_validation import ConfigModel
-from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import BaseModel
 
 class TestTrainAndCompareClassifiersOnMNIST(unittest.TestCase):
 

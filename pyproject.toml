@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytorch-cosma"
-version = "0.1.5"
+version = "0.1.7"
 description = "A deep learning framework built on top of PyTorch."
 authors = [
     { name = "Ra'ad Costello-Mahmoud", email = "mahmoud.raad@yahoo.co.uk" }
@@ -102,3 +102,6 @@ dependencies = [
 homepage = "https://github.com/raadcostellomahmoud/pytorch-cosma"
 repository = "https://github.com/raadcostellomahmoud/pytorch-cosma"
 
+
+[tool.setuptools.packages]
+find = { include = ["pytorch_cosma"] }  # Only include this package

@@ -6,9 +6,9 @@ from torch_geometric.data import DataLoader
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 
-from src.config_validation import ConfigModel
-from src.model_yaml_parser import YamlParser
-from src.network_construction import GraphModel  # Ensure this import is present
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import GraphModel  # Ensure this import is present
 
 
 class TestNodeClassificationPipeline(unittest.TestCase):

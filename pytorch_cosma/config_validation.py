@@ -1,7 +1,7 @@
 import torch.nn as nn
 from collections import defaultdict
 from typing import List, Union
-from src.network_construction import BaseModel, TwinNetwork, GraphModel  # Import valid model classes
+from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel  # Import valid model classes
 
 # Base Layer Config
 class BaseLayerConfig:

@@ -2,9 +2,9 @@ import unittest
 import torch
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
-from src.config_validation import ConfigModel
-from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import BaseModel
 
 import torch.nn as nn
 import torch.optim as optim

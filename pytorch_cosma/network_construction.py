@@ -9,8 +9,10 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torch_geometric.data import Data as GeomData
 
-from src.autoencoders import BaseAutoencoder
 import logging
+
+from pytorch_cosma.autoencoders import BaseAutoencoder
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,22 +88,22 @@ class BaseModel(nn.Module):
 
         # If still not found, check in utils
         if layer_class is None:
-            import src.utils as utils
+            from pytorch_cosma import utils
             layer_class = getattr(utils, layer_type, None)
 
         # If still not found, check in basic_layers
         if layer_class is None:
-            import src.basic_layers as basic_layers
+            from pytorch_cosma import basic_layers
             layer_class = getattr(basic_layers, layer_type, None)
 
         # If still not found, check in autoencoders
         if layer_class is None:
-            import src.autoencoders as autoencoders
+            import pytorch_cosma.autoencoders as autoencoders
             layer_class = getattr(autoencoders, layer_type, None)
 
         # If still not found, check in vision_transformer
         if layer_class is None:
-            import src.vision_transformer as vision_transformer
+            import pytorch_cosma.vision_transformer as vision_transformer
             layer_class = getattr(vision_transformer, layer_type, None)
 
         # If still not found, check in torchvision.models for ConvNeXt
