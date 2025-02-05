@@ -9,13 +9,14 @@ attrs==24.2.0
 blinker @ file:///croot/blinker_1696539051175/work
 Bottleneck @ file:///croot/bottleneck_1731058641041/work
 Brotli @ file:///croot/brotli-split_1714483155106/work
-certifi @ file:///home/conda/feedstock_root/build_artifacts/certifi_1734380492396/work/certifi
+certifi @ file:///croot/certifi_1734473278428/work/certifi
 charset-normalizer @ file:///croot/charset-normalizer_1721748349566/work
 choreographer==0.99.6
 click @ file:///croot/click_1698129812380/work
 comm @ file:///home/conda/feedstock_root/build_artifacts/comm_1733502965406/work
 contourpy @ file:///croot/contourpy_1700583582875/work
 cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+Cython @ file:///croot/cython_1736260275371/work
 daal4py==2023.1.1
 dash @ file:///croot/dash_1701446519353/work
 dash-vtk==0.0.9
@@ -70,6 +71,8 @@ nvidia-nccl-cu12==2.21.5
 nvidia-nvjitlink-cu12==12.4.127
 nvidia-nvtx-cu12==12.4.127
 onnx @ file:///croot/onnx_1722521175072/work
+opencv-python==4.10.0
+opencv-python-headless==4.10.0
 packaging==24.2
 pandas @ file:///croot/pandas_1718308974269/work/dist/pandas-2.2.2-cp311-cp311-linux_x86_64.whl#sha256=3c7ce50f9f519c785bd4cdb28a0ca71f85a541f3d27b25aa9da770f953e7f2e9
 parso @ file:///home/conda/feedstock_root/build_artifacts/parso_1733271261340/work
@@ -85,6 +88,7 @@ protobuf==4.25.3
 psutil @ file:///home/conda/feedstock_root/build_artifacts/psutil_1735327328223/work
 ptyprocess @ file:///home/conda/feedstock_root/build_artifacts/ptyprocess_1733302279685/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl#sha256=92c32ff62b5fd8cf325bec5ab90d7be3d2a8ca8c8a3813ff487a8d2002630d1f
 pure_eval @ file:///home/conda/feedstock_root/build_artifacts/pure_eval_1733569405015/work
+pycocotools @ file:///home/conda/feedstock_root/build_artifacts/pycocotools_1731600569766/work
 pydantic @ file:///croot/pydantic_1725040526370/work
 pydantic_core @ file:///croot/pydantic-core_1724790363792/work
 Pygments @ file:///home/conda/feedstock_root/build_artifacts/pygments_1736243443484/work
