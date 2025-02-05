@@ -654,18 +654,29 @@ class MultiModalGATModel(BaseModel):
 
         # Run all layers from the YAML config
         for layer_conf in self.config["layers"]:
+            if not gat_phase:
             _, _, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+                if layer_conf.get("name") == 'mode_concat':
 
         # Generate edge_index dynamically (all-to-all connectivity)
         num_nodes = outputs["x_combined"].shape[0]  # Assume fusion layer outputs "x_combined"
-        edge_index = combinations(torch.arange(num_nodes), r=2).t().to(self.device)
+                    edge_index = combinations(torch.arange(num_nodes)).t().to(self.device)
 
         # Apply GAT layers (defined in YAML)
         gat_outputs = {
             "x_combined": outputs["x_combined"],
             "edge_index": edge_index
         }
-        for layer_conf in self.config["gat_layers"]:  # Optional: Separate GAT layers
+                    
+                    gat_phase = True
+            else:
             _, _, gat_outputs = self._core_iterate_through_layers(layer_conf, gat_outputs)
 
-        return gat_outputs
+        # Edge predictions
+        source_indices, target_indices = edge_index
+        source_embeddings = gat_outputs["x_gat_fin"][source_indices]
+        target_embeddings = gat_outputs["x_gat_fin"][target_indices]
+        edge_features = torch.cat([source_embeddings, target_embeddings], dim=-1).to(self.device)
+
+
+        return gat_outputs["node_output"], edge_pred, edge_index

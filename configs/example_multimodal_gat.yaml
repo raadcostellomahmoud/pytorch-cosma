@@ -4,63 +4,124 @@ layers:
   - name: cnn1
     type: Conv2d
     input: x_images
-    output: x_cnn
+    output: x_cnn1
     in_channels: 3
     out_channels: 64
     kernel_size: 3
     padding: 1
   - name: activation1
     type: LeakyReLU
-    input: x_cnn
-    output: x_cnn
+    input: x_cnn1
+    output: x_cnn2
+  - name: maxpool1
+    type: MaxPool2d
+    input: x_cnn2
+    output: x_cnn3
+    kernel_size: 2
+  - name: cnn2
+    type: Conv2d
+    input: x_cnn3
+    output: x_cnn4
+    in_channels: 64
+    out_channels: 128
+    kernel_size: 3
+    padding: 1
+  - name: activation2
+    type: LeakyReLU
+    input: x_cnn4
+    output: x_cnn5
+  - name: adaptive_avg_pool_2d
+    type: AdaptiveAvgPool2d
+    input: x_cnn5
+    output: x_cnn6
+    output_size: [1,1]
   - name: flatten
     type: Flatten
-    input: x_cnn
-    output: x_cnn
+    input: x_cnn6
+    output: x_cnn7
+  - name: image_fc
+    type: Linear
+    input: x_cnn7
+    output: x_cnn8
+    in_features: 128  # One-hot encoded DNA base dimension
+    out_features: 5485
+  - name: cnn_layer_norm
+    type: LayerNorm
+    input: x_cnn8
+    output: x_cnn9
+    normalized_shape: 5485
+  - name: cnn_final_dropout
+    type: Dropout
+    input: x_cnn9
+    output: x_cnn_fin
+    p: 0.2
 
   # --- Sequence Processing Branch ---
   - name: one_hot_proj
     type: Linear
     input: x_one_hot
-    output: x_seq
+    output: x_seq1
     in_features: 4  # One-hot encoded DNA base dimension
     out_features: 128
   - name: transformer
-    type: TransformerEncoder
-    input: x_seq
-    output: x_seq
+    type: TransformerEncoderModule
+    input: x_seq1
+    output: x_seq2
     d_model: 128
     nhead: 4
+    dim_feedforward: 512
     num_layers: 2
+    dropout_prob: 0.2
+  - name: maxmeanpool
+    type: MaxMeanPooling
+    input: x_seq2
+    output: x_seq3
+    dim: 1
+  - name: transformer_linear
+    type: Linear
+    input: x_seq3
+    output: x_seq4
+    in_features: 256
+    out_features: 5485
+  - name: transformer_layer_norm
+    type: LayerNorm
+    input: x_seq4
+    output: x_seq5
+    normalized_shape: 5485
+  - name: transformer_final_dropout
+    type: Dropout
+    input: x_seq5
+    output: x_seq_fin
+    p: 0.2
 
   # --- Feature Fusion ---
-  - name: concat
+  - name: mode_concat
     type: Concat  # Assume you have a custom concatenation layer
-    input: [x_cnn, x_seq]
+    input: [x_seq_fin,x_cnn_fin]
     output: x_combined
     dim: -1
 
   # --- GAT Layers ---
   - name: gat1
     type: GATConv
-    input: x_combined
-    output: x_gat
-    in_channels: 192  # CNN (64) + Seq (128) = 192
+    input: [x_combined, edge_index]
+    output: x_gat1
+    in_channels: 10970
     out_channels: 256
     heads: 2
   - name: gat2
     type: GATConv
-    input: x_gat
-    output: x_gat
-    in_channels: 256 * 2  # GAT heads
+    input: [x_gat1, edge_index]
+    output: x_gat_fin
+    in_channels: 512  # GAT heads
     out_channels: 256
   - name: node_predictor
     type: Linear
-    input: x_gat
-    output: node_output
+    input: x_gat_fin
+    output: node_pre_sigmoid
     in_features: 256
-    out_features: 1  # Binary classification
-  - name: edge_predictor
-    type: EdgeScorer  # Custom layer (uses edge_index)
-    input: [x_gat, edge_index]
-    output: edge_output
+    out_features: 51
+  - name: activation3
+    type: Sigmoid
+    input: node_pre_sigmoid
+    output: node_output

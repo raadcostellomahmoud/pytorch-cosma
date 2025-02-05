@@ -70,6 +70,28 @@ class Concat(nn.Module):
     def forward(self, inputs: list[Tensor]) -> Tensor:
         return torch.cat(inputs, dim=self.dim)
     
+class TransformerEncoderModule(nn.TransformerEncoder):
+    def __init__(self, d_model, nhead, dim_feedforward, num_layers, dropout_prob):
+        transformer_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward,
+            dropout=dropout_prob, batch_first=True
+        )
+        super().__init__(transformer_layer, num_layers=num_layers)
+        
+class MaxMeanPooling(nn.Module):
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+        
+    def forward(self, input):
+        max_pooled = input.max(dim=self.dim)[0]
+        mean_pooled = input.mean(dim=self.dim)
+
+        # Concatenate
+        representation = torch.cat([mean_pooled, max_pooled], dim=-1)
+        representation = torch.sigmoid(representation)
+        return representation
+    
 class EdgeScorer(nn.Module):
     """Predicts edge scores from node embeddings and edge_index."""
     def __init__(self, in_features, hidden_dim=128, **kwargs):
@@ -85,3 +107,4 @@ class EdgeScorer(nn.Module):
         source = x[edge_index[0]]
         target = x[edge_index[1]]
         return self.edge_mlp(torch.cat([source, target], dim=-1)).squeeze()
+    
