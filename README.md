@@ -17,7 +17,7 @@ PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to 
 │   ├── latent_space.py
 │   ├── model_yaml_parser.py
 │   ├── network_construction.py
-│   └──twin_dataset_maker.py
+│   └── twin_dataset_maker.py
 ├── configs/
 │   ├── example_conv_autoencoder.yaml
 │   ├── example_gatconv_network.yaml
