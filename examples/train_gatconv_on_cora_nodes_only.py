@@ -6,10 +6,10 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.utils import to_networkx
 
-from src.config_validation import ConfigModel
-from src.graphs import GraphVisualizer
-from src.model_yaml_parser import YamlParser
-from src.network_construction import GraphModel, BaseModel, TwinNetwork
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.graph_exploration import GraphVisualizer
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import GraphModel, BaseModel, TwinNetwork
 
 # Load dataset
 dataset = Planetoid(root='data/Cora', name='Cora', transform=NormalizeFeatures())

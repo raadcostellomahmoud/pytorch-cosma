@@ -4,10 +4,10 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from src.config_validation import ConfigModel
-from src.latent_space import LatentSpaceExplorer, Visualizer
-from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel, TwinNetwork, GraphModel
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.latent_space import LatentSpaceExplorer, Visualizer
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel
 
 classification_loss_weight = 0.1
 

@@ -5,9 +5,9 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
-from src.config_validation import ConfigModel
-from src.model_yaml_parser import YamlParser
-from src.network_construction import BaseModel, TwinNetwork, GraphModel
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.model_yaml_parser import YamlParser
+from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel
 
 # Define device (GPU/CPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

@@ -11,7 +11,7 @@ from pytorch_cosma.config_validation import ConfigModel
 from pytorch_cosma.latent_space import LatentSpaceExplorer, Visualizer
 from pytorch_cosma.model_yaml_parser import YamlParser
 from pytorch_cosma.network_construction import TwinNetwork
-from pytorch_cosma.twin_dataset_maker import TwinDatasetFromDataset
+from pytorch_cosma.utils import TwinDatasetFromDataset
 
 
 class TestTwinNetworkPipeline(unittest.TestCase):

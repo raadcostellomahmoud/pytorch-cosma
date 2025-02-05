@@ -2,9 +2,9 @@ import torch
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
-from src.config_validation import ConfigModel
-from src.network_construction import BaseModel, TwinNetwork, GraphModel
-from src.model_yaml_parser import YamlParser
+from pytorch_cosma.config_validation import ConfigModel
+from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel
+from pytorch_cosma.model_yaml_parser import YamlParser
 
 # Define device (GPU/CPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
