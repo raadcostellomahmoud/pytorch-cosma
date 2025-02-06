@@ -6,7 +6,7 @@ layers:
     input: x_images
     output: x_cnn1
     in_channels: 3
-    out_channels: 64
+    out_channels: 64 # cnn first channels
     kernel_size: 3
     padding: 1
   - name: activation1
@@ -22,8 +22,8 @@ layers:
     type: Conv2d
     input: x_cnn3
     output: x_cnn4
-    in_channels: 64
-    out_channels: 128
+    in_channels: 64 # cnn first channels
+    out_channels: 128 # cnn first channels * 2
     kernel_size: 3
     padding: 1
   - name: activation2
@@ -43,13 +43,13 @@ layers:
     type: Linear
     input: x_cnn7
     output: x_cnn8
-    in_features: 128  # One-hot encoded DNA base dimension
-    out_features: 5485
+    in_features: 128  # cnn first channels * 2
+    out_features: 5485  # modality output dim
   - name: cnn_layer_norm
     type: LayerNorm
     input: x_cnn8
     output: x_cnn9
-    normalized_shape: 5485
+    normalized_shape: 5485 # modality output dim
   - name: cnn_final_dropout
     type: Dropout
     input: x_cnn9
@@ -62,35 +62,41 @@ layers:
     input: x_one_hot
     output: x_seq1
     in_features: 4  # One-hot encoded DNA base dimension
-    out_features: 128
-  - name: transformer
-    type: TransformerEncoderModule
+    out_features: 128 # pos encoding dim
+  - name: pos_encoding
+    type: PositionalEncodingCosma
     input: x_seq1
     output: x_seq2
     d_model: 128
+    max_len: 1000 # padded_read_len
+  - name: transformer
+    type: TransformerEncoderModule
+    input: x_seq2
+    output: x_seq3
+    d_model: 128 # pos encoding dim
     nhead: 4
-    dim_feedforward: 512
+    dim_feedforward: 512 # pos encoding dim * 4
     num_layers: 2
     dropout_prob: 0.2
   - name: maxmeanpool
     type: MaxMeanPooling
-    input: x_seq2
-    output: x_seq3
+    input: x_seq3
+    output: x_seq4
     dim: 1
   - name: transformer_linear
     type: Linear
-    input: x_seq3
-    output: x_seq4
-    in_features: 256
-    out_features: 5485
-  - name: transformer_layer_norm
-    type: LayerNorm
     input: x_seq4
     output: x_seq5
-    normalized_shape: 5485
+    in_features: 256 # pos encoding dim * 2
+    out_features: 5485 # modality output dim
+  - name: transformer_layer_norm
+    type: LayerNorm
+    input: x_seq5
+    output: x_seq6
+    normalized_shape: 5485 # modality output dim
   - name: transformer_final_dropout
     type: Dropout
-    input: x_seq5
+    input: x_seq6
     output: x_seq_fin
     p: 0.2
 
@@ -106,22 +112,54 @@ layers:
     type: GATConv
     input: [x_combined, edge_index]
     output: x_gat1
-    in_channels: 10970
-    out_channels: 256
+    in_channels: 10970 # modality output shape * num modalities
+    out_channels: 256 # gat hidden dim
     heads: 2
   - name: gat2
     type: GATConv
     input: [x_gat1, edge_index]
     output: x_gat_fin
-    in_channels: 512  # GAT heads
-    out_channels: 256
+    in_channels: 512  # GAT hidden dim * num_gat1_heads
+    out_channels: 256 # gat_hidden_dim
+
+  # --- Node Predictor Layers ---
   - name: node_predictor
     type: Linear
     input: x_gat_fin
     output: node_pre_sigmoid
-    in_features: 256
+    in_features: 256 # gat output channels
     out_features: 51
   - name: activation3
     type: Sigmoid
     input: node_pre_sigmoid
     output: node_output
+
+  # --- Edge Scorer Layers ---
+  - name: edge_index_to_features
+    type: EdgeIndexToFeatures
+    input: [x_gat_fin, edge_index]
+    output: edge_features
+  - name: edge_scorer_linear1
+    type: Linear
+    input: edge_features
+    output: edge_linear1_out
+    in_features: 512 # gat output channels * 2
+    out_features: 256
+  - name: edge_scorer_activation
+    type: ReLU
+    input: edge_linear1_out
+    output: edge_activation_out
+  - name: edge_scorer_linear2
+    type: Linear
+    input: edge_activation_out
+    output: edge_linear2_out
+    in_features: 256
+    out_features: 1 # num edge attrs
+  - name: edge_squeezer
+    type: SqueezeLayer
+    input: edge_linear2_out
+    output: edge_squeezer_out
+  - name: edge_sigmoid_out
+    type: Sigmoid # for just checking connected nodes, or ReLU for absolute edge_attr values
+    input: edge_squeezer_out
+    output: edge_output

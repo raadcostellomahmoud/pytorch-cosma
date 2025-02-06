@@ -28,7 +28,7 @@ class BaseModel(nn.Module):
                 Defaults to False.
     """
 
-    def __init__(self, config: dict, device: DeviceType = None, use_reconstruction: bool = False) -> None:
+    def __init__(self, config: dict, device: DeviceType = None, use_reconstruction: bool = False, verbose: bool = False) -> None:
 
         super(BaseModel, self).__init__()
         self.device = device if device else torch.device(
@@ -36,6 +36,7 @@ class BaseModel(nn.Module):
         self.layers = nn.ModuleDict()  # Store layers in a dict by name
         self.functional_layers = {}
         self.config = config
+        self.verbose = verbose
         self.build_network()
         self.to(self.device)  # Move the model to the specified device
         self.use_reconstruction = use_reconstruction
@@ -58,8 +59,7 @@ class BaseModel(nn.Module):
                 # Store in functional_layers
                 self.functional_layers[layer_name] = layer
 
-    @staticmethod
-    def create_layer(layer_conf: dict) -> nn.Module | Callable:
+    def create_layer(self, layer_conf: dict) -> nn.Module | Callable:
         """
         Creates a layer based on the configuration.
 
@@ -72,15 +72,16 @@ class BaseModel(nn.Module):
         Raises:
             ValueError: If the layer type is not recognized.
         """
-        layer_type = layer_conf.pop("type")  # Remove "type" so it"s not passed to the layer constructor
+        layer_type = layer_conf.pop(
+            "type")  # Remove "type" so it"s not passed to the layer constructor
 
         # First, try to fetch the layer from torch.nn
         layer_class = getattr(nn, layer_type, None)
-        
+
         # Instantiate the layer with the remaining configuration
         valid_layer_conf = {k: v for k, v in layer_conf.items() if k not in [
             "input", "output", "name"]}
-        
+
         # If not found in torch.nn, check in torch_geometric.nn
         if layer_class is None:
             import torch_geometric.nn as gnn
@@ -112,12 +113,15 @@ class BaseModel(nn.Module):
             layer_class = getattr(convnext, layer_type, None)
             if layer_class is not None:
                 block_setting = valid_layer_conf.pop("block_setting")
-                valid_layer_conf["block_setting"] = [convnext.CNBlockConfig(**block) for block in block_setting]
+                valid_layer_conf["block_setting"] = [
+                    convnext.CNBlockConfig(**block) for block in block_setting]
 
         if layer_class is None:
             raise ValueError(f"Unknown layer type: {layer_type}")
 
         try:
+            if self.verbose:
+                print("Layer type:", layer_class)
             if issubclass(layer_class, nn.Module):
                 return layer_class(**valid_layer_conf)
         except TypeError:
@@ -147,25 +151,32 @@ class BaseModel(nn.Module):
         try:
             # Handle layers with multiple inputs
             try:
-                logger.debug(f"Layer {layer_name} input shape: {inputs.shape}")
+                if self.verbose:
+                    print(f"Layer {layer_name} input shape: {inputs.shape}")
             except:
                 # Handle layers that expect unpacked inputs
                 for i, input_tensor in enumerate(inputs):
-                    logger.debug(f"Layer {layer_name} input {i} shape: {input_tensor.shape}")
+                    if self.verbose:
+                        print(
+                            f"Layer {layer_name} input {i} shape: {input_tensor.shape}")
             outputs[layer_conf["output"]] = layer(inputs)
 
         except TypeError:
             outputs[layer_conf["output"]] = layer(*inputs)
-        
+
         try:
-            logger.debug(f"Layer {layer_name} output shape: {outputs[layer_conf['output']].shape}")
+            if self.verbose:
+                print(
+                    f"Layer {layer_name} output shape: {outputs[layer_conf['output']].shape}")
         except:
             # Handle layers that produce multiple outputs
             for i, output_tensor in enumerate(outputs[layer_conf["output"]]):
-                logger.debug(f"Layer {layer_name} output {i} shape: {output_tensor.shape}")
+                if self.verbose:
+                    print(
+                        f"Layer {layer_name} output {i} shape: {output_tensor.shape}")
         return inputs, layer, outputs
 
-    def forward(self, x: Tensor, return_latent=False) -> Tensor:
+    def forward(self, x: Tensor, return_latent: bool = False) -> Tensor:
         # Ensure input is on the same device as the model
         x = x.to(self.device)
         # Track all outputs by name, starting with the input tensor
@@ -638,10 +649,12 @@ class GraphModel(BaseModel):
         print(f"Test Results - Loss: {avg_loss}, Metrics: {avg_metrics}")
         return {"loss": avg_loss, "metrics": avg_metrics}
 
+
 class MultiModalGATModel(BaseModel):
     """
     Handles multi-modal inputs (images + sequences) and GAT-specific logic.
     """
+
     def __init__(self, config: dict, device=None, **kwargs):
         super().__init__(config, device, **kwargs)
 
@@ -652,31 +665,29 @@ class MultiModalGATModel(BaseModel):
             "x_one_hot": data.x_one_hot.float().to(self.device)
         }
 
+        gat_phase = False
         # Run all layers from the YAML config
         for layer_conf in self.config["layers"]:
             if not gat_phase:
-            _, _, outputs = self._core_iterate_through_layers(layer_conf, outputs)
+                _, _, outputs = self._core_iterate_through_layers(
+                    layer_conf, outputs)
                 if layer_conf.get("name") == 'mode_concat':
 
-        # Generate edge_index dynamically (all-to-all connectivity)
-        num_nodes = outputs["x_combined"].shape[0]  # Assume fusion layer outputs "x_combined"
-                    edge_index = combinations(torch.arange(num_nodes)).t().to(self.device)
+                    # Generate edge_index dynamically (all-to-all connectivity)
+                    # Assume fusion layer outputs "x_combined"
+                    num_nodes = outputs["x_combined"].shape[0]
+                    edge_index = combinations(
+                        torch.arange(num_nodes)).t().to(self.device)
 
-        # Apply GAT layers (defined in YAML)
-        gat_outputs = {
-            "x_combined": outputs["x_combined"],
-            "edge_index": edge_index
-        }
-                    
+                    # Apply GAT layers (defined in YAML)
+                    gat_outputs = {
+                        "x_combined": outputs["x_combined"],
+                        "edge_index": edge_index
+                    }
+
                     gat_phase = True
             else:
-            _, _, gat_outputs = self._core_iterate_through_layers(layer_conf, gat_outputs)
+                _, _, gat_outputs = self._core_iterate_through_layers(
+                    layer_conf, gat_outputs)
 
-        # Edge predictions
-        source_indices, target_indices = edge_index
-        source_embeddings = gat_outputs["x_gat_fin"][source_indices]
-        target_embeddings = gat_outputs["x_gat_fin"][target_indices]
-        edge_features = torch.cat([source_embeddings, target_embeddings], dim=-1).to(self.device)
-
-
-        return gat_outputs["node_output"], edge_pred, edge_index
+        return gat_outputs["node_output"], gat_outputs["edge_output"], edge_index

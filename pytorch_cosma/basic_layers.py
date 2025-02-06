@@ -70,6 +70,34 @@ class Concat(nn.Module):
     def forward(self, inputs: list[Tensor]) -> Tensor:
         return torch.cat(inputs, dim=self.dim)
     
+class PositionalEncodingCosma(nn.Module):
+    """
+    Positional encoding for Transformer-based sequence input.
+    """
+
+    def __init__(self, d_model=64, max_len=500):
+        super(PositionalEncodingCosma, self).__init__()
+
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(10000.0)) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)  # Shape (1, max_len, d_model)
+        self.register_buffer('pe', pe)
+
+    def forward(self, input: Tensor) -> Tensor:
+        """
+        Args:
+            x: Input tensor of shape (batch_size, seq_len, d_model)
+
+        Returns:
+            Tensor with positional encoding added.
+        """
+        input = input + self.pe[:, :input.size(1), :]
+        return input
+
 class TransformerEncoderModule(nn.TransformerEncoder):
     def __init__(self, d_model, nhead, dim_feedforward, num_layers, dropout_prob):
         transformer_layer = nn.TransformerEncoderLayer(
@@ -83,7 +111,7 @@ class MaxMeanPooling(nn.Module):
         super().__init__()
         self.dim = dim
         
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         max_pooled = input.max(dim=self.dim)[0]
         mean_pooled = input.mean(dim=self.dim)
 
@@ -92,19 +120,20 @@ class MaxMeanPooling(nn.Module):
         representation = torch.sigmoid(representation)
         return representation
     
-class EdgeScorer(nn.Module):
-    """Predicts edge scores from node embeddings and edge_index."""
-    def __init__(self, in_features, hidden_dim=128, **kwargs):
+class EdgeIndexToFeatures(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.edge_mlp = nn.Sequential(
-            nn.Linear(in_features * 2, hidden_dim),
-            nn.LeakyReLU(),
-            nn.Linear(hidden_dim, 1)
-        )
-
+        
     def forward(self, inputs: list[Tensor]) -> Tensor:
-        x, edge_index = inputs
-        source = x[edge_index[0]]
-        target = x[edge_index[1]]
-        return self.edge_mlp(torch.cat([source, target], dim=-1)).squeeze()
-    
+        x_gat_fin, edge_index = inputs
+        source_indices, target_indices = edge_index
+        source_embeddings = x_gat_fin[source_indices]
+        target_embeddings = x_gat_fin[target_indices]
+        edge_features = torch.cat([source_embeddings, target_embeddings], dim=-1)
+        return edge_features
+
+class SqueezeLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, input: Tensor) -> Tensor:
+        return input.squeeze()

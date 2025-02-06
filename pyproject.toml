@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytorch-cosma"
-version = "0.1.18"
+version = "0.1.27"
 description = "A deep learning framework built on top of PyTorch."
 authors = [
     { name = "Ra'ad Costello-Mahmoud", email = "mahmoud.raad@yahoo.co.uk" }
