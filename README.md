@@ -2,18 +2,18 @@
 
 ## Overview
 
-PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to facilitate the creation, training, and visualization of neural networks. The framework supports various types of models, including convolutional autoencoders, graph neural networks, and vision transformers. It also provides utilities for latent space exploration and graph visualization.
+PyTorch-Cosma is a deep learning framework built on top of PyTorch, designed to facilitate the creation, training, refinement, and visualization of neural networks. The framework supports various types of models, including convolutional autoencoders, graph neural networks, and vision transformers. It also provides utilities for latent space exploration and graph visualization.
 
 ## Project Structure
 
 ```
 ├── pytorch_cosma/
-│   ├── config_validation.py
 │   ├── autoencoders.py
 │   ├── basic_layers.py
+│   ├── config_validation.py
 │   ├── utils.py
 │   ├── vision_transformer.py
-│   ├── graphs.py
+│   ├── graph_exploration.py
 │   ├── latent_space.py
 │   ├── model_yaml_parser.py
 │   ├── network_construction.py
