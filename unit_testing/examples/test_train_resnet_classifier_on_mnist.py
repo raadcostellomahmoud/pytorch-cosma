@@ -77,6 +77,38 @@ class TestModelPipeline(unittest.TestCase):
         accuracy = self.model.evaluate(test_loader=self.test_loader, loss_function=self.loss_function)
         self.assertGreater(accuracy, 50, "Model should achieve at least 50% accuracy on MNIST.")
 
+    def test_pruning(self):
+        """Test that the model pruning works correctly."""
+        self.model.train_model(
+            train_loader=self.train_loader,
+            optimizer=self.optimizer,
+            loss_function=self.loss_function,
+            epochs=1
+        )
+        
+        # Prune the model
+        self.model.prune_model(self.validated_config['pruning'])
+        pruned_sparsity = self.model.get_sparsity_stats()
+        
+        # Check that sparsity has increased
+        self.assertGreater(pruned_sparsity['sparsity_percent'], 0, "Sparsity should increase after pruning.")
+        
+        # Check post-pruning accuracy
+        accuracy = self.model.evaluate(test_loader=self.test_loader, loss_function=self.loss_function)
+        self.assertGreaterEqual(accuracy, 0, "Accuracy should be non-negative after pruning.")
+        self.assertLessEqual(accuracy, 100, "Accuracy should not exceed 100% after pruning.")
+        
+        # Refine the pruned model
+        self.model.train_model(
+            train_loader=self.train_loader,
+            optimizer=self.optimizer,
+            loss_function=self.loss_function,
+            epochs=1  # Only one epoch for testing
+        )
+        
+        refined_accuracy = self.model.evaluate(test_loader=self.test_loader, loss_function=self.loss_function)
+        self.assertGreater(refined_accuracy, accuracy, "Accuracy should improve after refining the pruned model.")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,10 +9,12 @@ from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torch_geometric.data import Data as GeomData
+import torch.nn.utils.prune as prune
 
 import logging
 
 from pytorch_cosma.autoencoders import BaseAutoencoder
+from pytorch_cosma.model_yaml_parser import PruneConfig
 
 logger = logging.getLogger(__name__)
 
@@ -338,6 +340,55 @@ class BaseModel(nn.Module):
         accuracy = 100 * correct / total
         print(f"Test Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
         return accuracy
+    
+
+    def prune_model(self, prune_config: PruneConfig):
+        """Applies pruning to the model based on configuration"""
+        parameters_to_prune = []
+        
+        # Identify prunable layers
+        for name, module in self.named_modules():
+            if any(isinstance(module, getattr(nn, layer_type)) for layer_type in prune_config.layers_to_prune):
+                parameters_to_prune.append((module, 'weight'))
+
+        if not parameters_to_prune:
+            raise ValueError("No prunable layers found matching specified types")
+
+        # Select pruning method
+        pruning_method = {
+            'l1_unstructured': prune.L1Unstructured,
+            'random_unstructured': prune.RandomUnstructured,
+            'ln_structured': prune.LnStructured
+        }.get(prune_config.method)
+
+        if prune_config.global_pruning:
+            prune.global_unstructured(
+                parameters_to_prune,
+                pruning_method=pruning_method,
+                amount=prune_config.amount
+            )
+        else:
+            for module, param_name in parameters_to_prune:
+                prune.remove(module, param_name)  # Remove existing pruning
+                pruning_method(module, name=param_name, amount=prune_config.amount)
+
+    def make_pruning_permanent(self):
+        """Converts temporary pruning masks to permanent parameter changes"""
+        for name, module in self.named_modules():
+            if prune.is_pruned(module):
+                prune.remove(module, 'weight')
+
+    def get_sparsity_stats(self) -> dict:
+        """Returns dictionary of sparsity statistics"""
+        stats = {'total_params': 0, 'pruned_params': 0}
+        for name, module in self.named_modules():
+            if prune.is_pruned(module):
+                if hasattr(module, 'weight'):
+                    stats['total_params'] += module.weight.nelement()
+                    stats['pruned_params'] += torch.sum(module.weight == 0)
+                    
+        stats['sparsity_percent'] = 100 * stats['pruned_params'] / stats['total_params']
+        return stats
 
 
 class TwinNetwork(BaseModel):

@@ -1,4 +1,9 @@
 model_class: BaseModel
+pruning:
+  amount: 0.99
+  method: l1_unstructured
+  layers_to_prune: ["Conv2d", "Linear"]
+  global_pruning: true
 layers:
   - name: conv1
     type: Conv2d

@@ -22,9 +22,10 @@ class AddLayerConfig(BaseLayerConfig):
 
 # Class to handle configuration and validation
 class ConfigModel:
-    def __init__(self, model_class: str, layers: List[dict]):
+    def __init__(self, model_class: str, layers: List[dict], pruning: dict = None):
         self.model_class = model_class
         self.layers = layers
+        self.pruning = pruning
         
         # Validate the parsed layers
         self.graph_specific_inputs = {"x", "edge_index", "batch"}  # GNN-specific inputs
@@ -102,4 +103,4 @@ class ConfigModel:
                     raise ValueError("Cycle detected in layer dependencies.")
 
     def to_dict(self):
-        return {"model_class": self.model_class, "layers": self.layers}
+        return {"model_class": self.model_class, "layers": self.layers, "pruning": self.pruning}

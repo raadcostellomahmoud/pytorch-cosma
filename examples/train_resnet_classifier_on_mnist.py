@@ -25,7 +25,7 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 # Train and evaluate
-for epoch in range(10):  # Assuming 10 epochs
+for epoch in range(10):
     model.train_model(train_loader=train_loader,
                       optimizer=optim.Adam(model.parameters(), lr=0.001),
                       loss_function=nn.CrossEntropyLoss(), epochs=1
@@ -37,3 +37,24 @@ for epoch in range(10):  # Assuming 10 epochs
 test_accuracy = model.evaluate(test_loader=test_loader,
                                loss_function=nn.CrossEntropyLoss())
 print(f"Final Test Accuracy: {test_accuracy:.2f}%")
+
+# Prune the model
+model.prune_model(validated_config['pruning'])
+print("Sparsity:", model.get_sparsity_stats())
+
+# Check post-pruning accuracy
+test_accuracy = model.evaluate(test_loader=test_loader,
+                               loss_function=nn.CrossEntropyLoss())
+
+# Refine and evaluate the pruned model
+for epoch in range(1):
+    model.train_model(train_loader=train_loader,
+                      optimizer=optim.Adam(model.parameters(), lr=0.001),
+                      loss_function=nn.CrossEntropyLoss(), epochs=1
+                      )
+    val_accuracy = model.evaluate(test_loader=test_loader,
+                                  loss_function=nn.CrossEntropyLoss())
+    print(f"Epoch {epoch + 1}, Validation Accuracy: {val_accuracy:.2f}%")
+    
+test_accuracy = model.evaluate(test_loader=test_loader,
+                               loss_function=nn.CrossEntropyLoss())
