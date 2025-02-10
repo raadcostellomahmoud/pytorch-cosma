@@ -105,29 +105,29 @@ class ConfigModel:
                 if dfs(node, visited, set()):
                     raise ValueError("Cycle detected in layer dependencies.")
 
-    def validate_pruning(self, pruning_config):
-        if pruning_config is None:
+    def validate_pruning(self):
+        if self.pruning is None:
             return
         
-        if not isinstance(pruning_config, dict):
+        if not isinstance(self.pruning, dict):
             raise ValueError("Pruning configuration must be a dictionary.")
         
         required_keys = ["amount", "method", "layers_to_prune", "global_pruning"]
         for key in required_keys:
-            if key not in pruning_config:
+            if key not in self.pruning:
                 raise ValueError(f"Missing required pruning key: {key}")
         
-        if not (0 <= pruning_config['amount'] <= 1):
+        if not (0 <= self.pruning['amount'] <= 1):
             raise ValueError("Pruning amount must be between 0 and 1.")
         
         valid_methods = ['l1_unstructured', 'random_unstructured', 'ln_structured']
-        if pruning_config['method'] not in valid_methods:
-            raise ValueError(f"Invalid pruning method: {pruning_config['method']}. Valid methods are: {valid_methods}")
+        if self.pruning['method'] not in valid_methods:
+            raise ValueError(f"Invalid pruning method: {self.pruning['method']}. Valid methods are: {valid_methods}")
         
-        if not isinstance(pruning_config['layers_to_prune'], list):
+        if not isinstance(self.pruning['layers_to_prune'], list):
             raise ValueError("Layers to prune must be a list.")
         
-        if not isinstance(pruning_config['global_pruning'], bool):
+        if not isinstance(self.pruning['global_pruning'], bool):
             raise ValueError("Global pruning must be a boolean.")
 
     def to_dict(self):
