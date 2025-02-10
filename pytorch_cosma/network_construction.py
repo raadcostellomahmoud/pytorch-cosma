@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Callable
 
+import numpy as np
 import torch
 import torch.nn as nn
 from onnx.backend.base import DeviceType
@@ -691,3 +692,185 @@ class MultiModalGATModel(BaseModel):
                     layer_conf, gat_outputs)
 
         return gat_outputs["node_output"], gat_outputs["edge_output"], edge_index
+
+    def train_model(self, train_loader, optimizer, scheduler, criterion_node, criterion_edge, device,
+                        num_epochs, edge_loss_weighting, epoch_report_interval, just_infer_connected: bool, val_loader=None,
+                        early_stopping: bool = True, early_stopping_window: int = 5):
+        """
+        Train the GATModelWithTransformerAndCNN model with node and edge loss handling and log metrics to wandb.
+
+        Args:
+            model: The PyTorch model to train.
+            train_loader: DataLoader for training data.
+            optimizer: Optimizer for model parameters.
+            scheduler: Learning rate scheduler.
+            criterion_node: Loss function for node predictions.
+            criterion_edge: Loss function for edge predictions.
+            device: Device to run the training on (e.g., 'cuda' or 'cpu').
+            num_epochs: Number of training epochs.
+            edge_loss_weighting: Weighting factor for edge loss.
+            epoch_report_interval: Interval for reporting loss and learning rate.
+
+        Returns:
+            None
+        """
+
+        self.train()
+        trait_losses = []
+        edge_losses = []
+        val_trait_losses = []
+        val_edge_losses = []
+
+        for epoch in range(num_epochs):
+            total_trait_loss = torch.zeros(train_loader.dataset[0].y.size(1), device=device)
+            total_edge_loss = 0.0
+            num_nonzero_edge_samples = 0
+            num_zero_edge_samples = 0
+            num_node_samples = torch.zeros(train_loader.dataset[0].y.size(1), device=device)
+
+            for data in train_loader:
+                data = data.to(device)
+                optimizer.zero_grad()
+
+                # Forward pass
+                node_pred, edge_pred, edge_index = self.forward(data)
+
+                # Node loss
+                mask = (data.y != -1)
+                masked_node_pred = node_pred[mask]
+                masked_node_truth = data.y[mask]
+                node_loss = criterion_node(masked_node_pred, masked_node_truth)
+
+                # Update per-trait loss
+                for trait_idx in range(data.y.size(1)):
+                    trait_mask = mask[:, trait_idx]
+                    if trait_mask.sum() > 0:
+                        trait_loss = criterion_node(node_pred[:, trait_idx][trait_mask], data.y[:, trait_idx][trait_mask])
+                        total_trait_loss[trait_idx] += trait_loss.item() * trait_mask.sum().item()
+                        num_node_samples[trait_idx] += trait_mask.sum().item()
+
+                # Edge loss
+                if just_infer_connected:
+                    true_edge_map = {tuple(edge): max(0, min(value,1)) for edge, value in
+                                    zip(data.edge_index.t().tolist(), data.edge_attr.tolist())}
+                else:
+                    true_edge_map = {tuple(edge): value for edge, value in
+                                    zip(data.edge_index.t().tolist(), data.edge_attr.tolist())}
+                true_edge_attr_values = [true_edge_map.get(tuple(edge), 0) for edge in edge_index.t().tolist()]
+                true_edge_attr_values = torch.tensor(true_edge_attr_values, device=device, dtype=torch.float)
+
+                nonzero_mask = true_edge_attr_values > 0
+                zero_mask = ~nonzero_mask
+
+                nonzero_true_edge_attr = true_edge_attr_values[nonzero_mask]
+                nonzero_pred_edge_attr = edge_pred[nonzero_mask]
+                zero_true_edge_attr = true_edge_attr_values[zero_mask]
+                zero_pred_edge_attr = edge_pred[zero_mask]
+
+                nonzero_edge_loss = criterion_edge(nonzero_pred_edge_attr, nonzero_true_edge_attr) * edge_loss_weighting if len(nonzero_true_edge_attr) > 0 else Tensor([0.]).to(device)
+                zero_edge_loss = criterion_edge(zero_pred_edge_attr, zero_true_edge_attr) * edge_loss_weighting if len(zero_true_edge_attr) > 0 else Tensor([0.]).to(device)
+
+                total_edge_loss_batch = (nonzero_edge_loss + zero_edge_loss) / 2
+                total_edge_loss += total_edge_loss_batch.item() * len(edge_index.t())
+                num_nonzero_edge_samples += nonzero_true_edge_attr.size(0)
+                num_zero_edge_samples += zero_true_edge_attr.size(0)
+
+                # Total loss
+                loss = node_loss + total_edge_loss_batch
+                loss.backward()
+                optimizer.step()
+
+            # Calculate average losses
+            avg_node_loss = total_trait_loss / num_node_samples
+            avg_edge_loss = total_edge_loss / (num_nonzero_edge_samples + num_zero_edge_samples)
+
+            scheduler.step(avg_node_loss.mean().item() + avg_edge_loss)
+
+            # Store losses for plotting
+            trait_losses.append(avg_node_loss.mean().item())
+            edge_losses.append(avg_edge_loss)
+
+            # Log metrics to wandb
+            current_lr = optimizer.param_groups[0]['lr']
+
+            if val_loader:
+                val_total_trait_loss = torch.zeros(val_loader.dataset[0].y.size(1), device=device)
+                val_total_edge_loss = 0.0
+                val_num_nonzero_edge_samples = 0
+                val_num_zero_edge_samples = 0
+                val_num_node_samples = torch.zeros(val_loader.dataset[0].y.size(1), device=device)
+
+                for data in val_loader:
+                    data = data.to(device)
+                    optimizer.zero_grad()
+
+                    # Forward pass
+                    node_pred, edge_pred, edge_index = self.forward(data)
+
+                    # Node loss
+                    mask = (data.y != -1)
+                    masked_node_pred = node_pred[mask]
+                    masked_node_truth = data.y[mask]
+                    node_loss = criterion_node(masked_node_pred, masked_node_truth)
+
+                    # Update per-trait loss
+                    for trait_idx in range(data.y.size(1)):
+                        trait_mask = mask[:, trait_idx]
+                        if trait_mask.sum() > 0:
+                            trait_loss = criterion_node(node_pred[:, trait_idx][trait_mask],
+                                                        data.y[:, trait_idx][trait_mask])
+                            val_total_trait_loss[trait_idx] += trait_loss.item() * trait_mask.sum().item()
+                            val_num_node_samples[trait_idx] += trait_mask.sum().item()
+
+                    # Edge loss
+                    if just_infer_connected:
+                        true_edge_map = {tuple(edge): max(0, min(value, 1)) for edge, value in
+                                        zip(data.edge_index.t().tolist(), data.edge_attr.tolist())}
+                    else:
+                        true_edge_map = {tuple(edge): value for edge, value in
+                                        zip(data.edge_index.t().tolist(), data.edge_attr.tolist())}
+                    true_edge_attr_values = [true_edge_map.get(tuple(edge), 0) for edge in edge_index.t().tolist()]
+                    true_edge_attr_values = torch.tensor(true_edge_attr_values, device=device, dtype=torch.float)
+
+                    nonzero_mask = true_edge_attr_values > 0
+                    zero_mask = ~nonzero_mask
+
+                    nonzero_true_edge_attr = true_edge_attr_values[nonzero_mask]
+                    nonzero_pred_edge_attr = edge_pred[nonzero_mask]
+                    zero_true_edge_attr = true_edge_attr_values[zero_mask]
+                    zero_pred_edge_attr = edge_pred[zero_mask]
+
+                    nonzero_edge_loss = criterion_edge(nonzero_pred_edge_attr, nonzero_true_edge_attr) * edge_loss_weighting
+                    zero_edge_loss = criterion_edge(zero_pred_edge_attr, zero_true_edge_attr) * edge_loss_weighting
+
+                    total_edge_loss_batch = (nonzero_edge_loss + zero_edge_loss) / 2
+                    val_total_edge_loss += total_edge_loss_batch.item() * len(edge_index.t())
+                    val_num_nonzero_edge_samples += nonzero_true_edge_attr.size(0)
+                    val_num_zero_edge_samples += zero_true_edge_attr.size(0)
+
+                # Calculate average losses
+                val_avg_node_loss = val_total_trait_loss / val_num_node_samples
+                val_avg_edge_loss = val_total_edge_loss / (val_num_nonzero_edge_samples + val_num_zero_edge_samples)
+
+                # Store losses for plotting
+                val_trait_losses.append(val_avg_node_loss.mean().item())
+                val_edge_losses.append(val_avg_edge_loss)
+
+            # Print progress at intervals
+            if epoch % epoch_report_interval == 0:
+                print(f"Epoch {epoch + 1}, Learning Rate: {current_lr:.8f} | "
+                    f"All-trait average loss: {avg_node_loss.mean().item():.8f} | "
+                    f"Edge Average Loss: {avg_edge_loss:.8f} | "
+                    f"Combined total loss: {avg_node_loss.mean().item() + avg_edge_loss:.8f}")
+                if val_loader:
+                    print(f"| All-trait average validation loss: {val_avg_node_loss.mean().item():.8f} | "
+                        f"Edge average validation loss: {val_avg_edge_loss:.8f} | "
+                        f"Combined validation loss: {val_avg_node_loss.mean().item() + val_avg_edge_loss:.8f} |")
+
+            if early_stopping and epoch > early_stopping_window:
+                #combined_val_losses = np.array(val_trait_losses) + np.array(val_edge_losses)
+                loss_deltas = np.array(val_trait_losses[1:]) - np.array(val_trait_losses[:-1])
+                if np.median(loss_deltas[-early_stopping_window:]) >= 0:
+                    print(
+                        f"Early stopping triggered. Median loss_delta from last {early_stopping_window} epochs was {np.median(loss_deltas[-4:]):.8f} ")
+                    break
