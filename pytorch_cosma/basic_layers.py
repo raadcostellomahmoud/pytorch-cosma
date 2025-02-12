@@ -70,6 +70,14 @@ class Concat(nn.Module):
     def forward(self, inputs: list[Tensor]) -> Tensor:
         return torch.cat(inputs, dim=self.dim)
     
+class ReshapeModule(nn.Module):
+    """Reshapes input tensor to specified shape."""
+    def __init__(self, shape):
+        super().__init__()
+        self.shape = shape
+    def forward(self, input: Tensor) -> Tensor:
+        return torch.reshape(input, self.shape)
+    
 class PositionalEncodingCosma(nn.Module):
     """
     Positional encoding for Transformer-based sequence input.
