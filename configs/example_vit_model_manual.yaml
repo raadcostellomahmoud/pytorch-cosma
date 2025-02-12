@@ -1,0 +1,42 @@
+model_class: BaseModel
+layers:
+  - name: patch_embed
+    type: Conv2d
+    input: input
+    in_channels: 3
+    out_channels: 64
+    kernel_size: 4
+    stride: 4
+    output: patches
+  - name: flatten
+    type: Flatten
+    start_dim: 2
+    end_dim: -1
+    input: patches
+    output: flattened_patches
+  - name: pos_encoding
+    type: PositionalEncodingCosma
+    d_model: 64
+    max_len: 64
+    input: flattened_patches
+    output: encoded
+  - name: transformer
+    type: TransformerEncoderModule
+    d_model: 64
+    nhead: 4
+    dim_feedforward: 256
+    num_layers: 4
+    dropout_prob: 0.1
+    input: encoded
+    output: transformer_out
+  - name: pool
+    type: MaxMeanPooling
+    dim: 1
+    input: transformer_out
+    output: pooled
+  - name: classifier
+    type: Linear
+    in_features: 128  # 64 (max) + 64 (mean) = 128
+    out_features: 10
+    input: pooled
+    output: logits
