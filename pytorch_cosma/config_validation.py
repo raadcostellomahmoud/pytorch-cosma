@@ -45,7 +45,7 @@ class ConfigModel:
         self.detect_cycles()
 
         # Validate the pruning configuration
-        self.validate_pruning(self.pruning)
+        self.validate_pruning()
 
     def validate_model_class(self):
         valid_classes = {"BaseModel": BaseModel, "TwinNetwork": TwinNetwork, "GraphModel": GraphModel, "MultiModalGATModel": MultiModalGATModel}
