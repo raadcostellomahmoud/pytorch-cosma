@@ -2,7 +2,7 @@ import torch.nn as nn
 from collections import defaultdict
 from typing import List, Union
 from pytorch_cosma.network_construction import BaseModel, TwinNetwork, GraphModel, MultiModalGATModel  # Import valid model classes
-
+from pytorch_cosma.model_yaml_parser import PruneConfig
 # Base Layer Config
 class BaseLayerConfig:
     def __init__(self, name: str, input: Union[str, List[str]], output: str):
@@ -109,25 +109,20 @@ class ConfigModel:
         if self.pruning is None:
             return
         
-        if not isinstance(self.pruning, dict):
-            raise ValueError("Pruning configuration must be a dictionary.")
+        if not isinstance(self.pruning, PruneConfig):
+            raise ValueError("Pruning configuration must be a PruneConfig object.")
         
-        required_keys = ["amount", "method", "layers_to_prune", "global_pruning"]
-        for key in required_keys:
-            if key not in self.pruning:
-                raise ValueError(f"Missing required pruning key: {key}")
-        
-        if not (0 <= self.pruning['amount'] <= 1):
+        if not (0 <= self.pruning.amount <= 1):
             raise ValueError("Pruning amount must be between 0 and 1.")
         
         valid_methods = ['l1_unstructured', 'random_unstructured', 'ln_structured']
-        if self.pruning['method'] not in valid_methods:
-            raise ValueError(f"Invalid pruning method: {self.pruning['method']}. Valid methods are: {valid_methods}")
+        if self.pruning.method not in valid_methods:
+            raise ValueError(f"Invalid pruning method: {self.pruning.method}. Valid methods are: {valid_methods}")
         
-        if not isinstance(self.pruning['layers_to_prune'], list):
+        if not isinstance(self.pruning.layers_to_prune, list):
             raise ValueError("Layers to prune must be a list.")
         
-        if not isinstance(self.pruning['global_pruning'], bool):
+        if not isinstance(self.pruning.global_pruning, bool):
             raise ValueError("Global pruning must be a boolean.")
 
     def to_dict(self):
