@@ -179,7 +179,7 @@ class BaseModel(nn.Module):
                         f"Layer {layer_name} output {i} shape: {output_tensor.shape}")
         return inputs, layer, outputs
 
-    def forward(self, x: Tensor, return_latent: bool = False) -> Tensor:
+    def forward(self, x: Tensor, return_latent: bool = False, to_layer: int = -1) -> Tensor:
         # Ensure input is on the same device as the model
         x = x.to(self.device)
         # Track all outputs by name, starting with the input tensor
@@ -198,7 +198,7 @@ class BaseModel(nn.Module):
                 return latent
 
         # Return the final output from the last layer
-        return outputs[self.config["layers"][-1]["output"]]
+        return outputs[self.config["layers"][to_layer]["output"]]
 
     def export_onnx(self, file_path: str, input_shape: tuple = (1, 1, 28, 28), opset_version: int = 13) -> None:
         """
