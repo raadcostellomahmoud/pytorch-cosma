@@ -144,3 +144,13 @@ class ConvAutoencoder(BaseAutoencoder):
         input_size = in_shape[1]
         output_size = math.floor((input_size + 2 * padding - kernel_size) / stride) + 1
         return output_size
+
+class Reparameterize(nn.Module):
+    def __init__(self, ):
+        super(Reparameterize, self).__init__()
+    """Applies reparameterization trick for VAE"""
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        mu, logvar = inputs
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
