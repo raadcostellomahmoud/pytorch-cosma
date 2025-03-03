@@ -76,7 +76,7 @@ class ReshapeModule(nn.Module):
         super().__init__()
         self.shape = shape
     def forward(self, input: Tensor) -> Tensor:
-        return torch.reshape(input, self.shape)
+        return input.view(input.size(0), *self.shape)
     
 class PositionalEncodingCosma(nn.Module):
     """
