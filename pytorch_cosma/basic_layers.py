@@ -141,7 +141,8 @@ class EdgeIndexToFeatures(nn.Module):
         return edge_features
 
 class SqueezeLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, dim=1):
         super().__init__()
+        self.dim = dim
     def forward(self, input: Tensor) -> Tensor:
-        return input.squeeze()
+        return input.squeeze(self.dim)
